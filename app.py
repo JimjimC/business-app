@@ -98,23 +98,39 @@ elif page == "Customers":
                     st.rerun()
 
     # Display customers
-    response = (
-        supabase
-        .table("customers")
-        .select("*")
-        .order("id")
-        .execute()
+response = (
+    supabase
+    .table("customers")
+    .select("*")
+    .order("id")
+    .execute()
+)
+
+customers = response.data
+
+search = st.text_input(
+    "🔎 Search customers",
+    placeholder="Search by company, contact, phone or email"
+)
+
+if search:
+    search_lower = search.lower()
+
+    customers = [
+        customer for customer in customers
+        if search_lower in str(customer.get("company_name", "")).lower()
+        or search_lower in str(customer.get("contact_person", "")).lower()
+        or search_lower in str(customer.get("phone", "")).lower()
+        or search_lower in str(customer.get("email", "")).lower()
+    ]
+
+if customers:
+    st.dataframe(
+        customers,
+        use_container_width=True
     )
-
-    customers = response.data
-
-    if customers:
-        st.dataframe(
-            customers,
-            use_container_width=True
-        )
-    else:
-        st.info("No customers found.")
+else:
+    st.info("No customers found.")
 
 elif page == "Suppliers":
     st.header("Suppliers")

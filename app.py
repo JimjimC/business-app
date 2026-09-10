@@ -64,7 +64,10 @@ if page == "Home":
 elif page == "Customers":
     st.header("Customers")
 
-    # Add new customer
+    # -----------------------------
+    # ADD NEW CUSTOMER
+    # -----------------------------
+
     with st.expander("➕ Add New Customer"):
         with st.form("add_customer_form"):
             company_name = st.text_input("Company name")
@@ -97,7 +100,10 @@ elif page == "Customers":
                     st.success("Customer saved successfully.")
                     st.rerun()
 
-    # Get customers from database
+    # -----------------------------
+    # GET CUSTOMERS
+    # -----------------------------
+
     response = (
         supabase
         .table("customers")
@@ -106,9 +112,116 @@ elif page == "Customers":
         .execute()
     )
 
-    customers = response.data
+    all_customers = response.data
 
-    # Search
+    # -----------------------------
+    # EDIT CUSTOMER
+    # -----------------------------
+
+    if all_customers:
+        with st.expander("✏️ Edit Customer"):
+
+            customer_ids = [
+                customer["id"]
+                for customer in all_customers
+            ]
+
+            selected_id = st.selectbox(
+                "Select customer",
+                customer_ids,
+                format_func=lambda customer_id: next(
+                    customer["company_name"]
+                    for customer in all_customers
+                    if customer["id"] == customer_id
+                )
+            )
+
+            selected_customer = next(
+                customer
+                for customer in all_customers
+                if customer["id"] == selected_id
+            )
+
+            with st.form("edit_customer_form"):
+
+                edit_company_name = st.text_input(
+                    "Company name",
+                    value=selected_customer.get("company_name") or "",
+                    key=f"edit_company_{selected_id}"
+                )
+
+                edit_contact_person = st.text_input(
+                    "Contact person",
+                    value=selected_customer.get("contact_person") or "",
+                    key=f"edit_contact_{selected_id}"
+                )
+
+                edit_phone = st.text_input(
+                    "Phone",
+                    value=selected_customer.get("phone") or "",
+                    key=f"edit_phone_{selected_id}"
+                )
+
+                edit_email = st.text_input(
+                    "Email",
+                    value=selected_customer.get("email") or "",
+                    key=f"edit_email_{selected_id}"
+                )
+
+                edit_address = st.text_input(
+                    "Address",
+                    value=selected_customer.get("address") or "",
+                    key=f"edit_address_{selected_id}"
+                )
+
+                edit_notes = st.text_area(
+                    "Notes",
+                    value=selected_customer.get("notes") or "",
+                    key=f"edit_notes_{selected_id}"
+                )
+
+                current_status = selected_customer.get("status") or "Active"
+
+                edit_status = st.selectbox(
+                    "Status",
+                    ["Active", "Inactive"],
+                    index=0 if current_status == "Active" else 1,
+                    key=f"edit_status_{selected_id}"
+                )
+
+                update_submitted = st.form_submit_button(
+                    "Save Changes"
+                )
+
+                if update_submitted:
+                    if not edit_company_name.strip():
+                        st.error("Company name is required.")
+                    else:
+                        (
+                            supabase
+                            .table("customers")
+                            .update({
+                                "company_name": edit_company_name,
+                                "contact_person": edit_contact_person,
+                                "phone": edit_phone,
+                                "email": edit_email,
+                                "address": edit_address,
+                                "notes": edit_notes,
+                                "status": edit_status
+                            })
+                            .eq("id", selected_id)
+                            .execute()
+                        )
+
+                        st.success("Customer updated successfully.")
+                        st.rerun()
+
+    # -----------------------------
+    # SEARCH CUSTOMERS
+    # -----------------------------
+
+    customers = all_customers
+
     search = st.text_input(
         "🔎 Search customers",
         placeholder="Search by company, contact, phone or email"
@@ -125,7 +238,10 @@ elif page == "Customers":
             or search_lower in str(customer.get("email", "")).lower()
         ]
 
-    # Display customers
+    # -----------------------------
+    # DISPLAY CUSTOMERS
+    # -----------------------------
+
     if customers:
         st.dataframe(
             customers,
@@ -133,6 +249,11 @@ elif page == "Customers":
         )
     else:
         st.info("No customers found.")
+
+
+elif page == "Suppliers":
+    st.header("Suppliers")
+    st.write("Supplier database will appear here.")
 
 
 elif page == "Suppliers":

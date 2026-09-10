@@ -64,11 +64,55 @@ if page == "Home":
 elif page == "Customers":
     st.header("Customers")
 
-    response = supabase.table("customers").select("*").execute()
+    # Add new customer
+    with st.expander("➕ Add New Customer"):
+        with st.form("add_customer_form"):
+            company_name = st.text_input("Company name")
+            contact_person = st.text_input("Contact person")
+            phone = st.text_input("Phone")
+            email = st.text_input("Email")
+            address = st.text_input("Address")
+            notes = st.text_area("Notes")
+            status = st.selectbox(
+                "Status",
+                ["Active", "Inactive"]
+            )
+
+            submitted = st.form_submit_button("Save Customer")
+
+            if submitted:
+                if not company_name.strip():
+                    st.error("Company name is required.")
+                else:
+                    supabase.table("customers").insert({
+                        "company_name": company_name,
+                        "contact_person": contact_person,
+                        "phone": phone,
+                        "email": email,
+                        "address": address,
+                        "notes": notes,
+                        "status": status
+                    }).execute()
+
+                    st.success("Customer saved successfully.")
+                    st.rerun()
+
+    # Display customers
+    response = (
+        supabase
+        .table("customers")
+        .select("*")
+        .order("id")
+        .execute()
+    )
+
     customers = response.data
 
     if customers:
-        st.dataframe(customers, use_container_width=True)
+        st.dataframe(
+            customers,
+            use_container_width=True
+        )
     else:
         st.info("No customers found.")
 

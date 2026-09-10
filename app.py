@@ -215,7 +215,57 @@ elif page == "Customers":
 
                         st.success("Customer updated successfully.")
                         st.rerun()
+    # -----------------------------
+    # DELETE CUSTOMER
+    # -----------------------------
 
+    if all_customers:
+        with st.expander("🗑️ Delete Customer"):
+
+            delete_id = st.selectbox(
+                "Select customer to delete",
+                [customer["id"] for customer in all_customers],
+                format_func=lambda customer_id: next(
+                    customer["company_name"]
+                    for customer in all_customers
+                    if customer["id"] == customer_id
+                ),
+                key="delete_customer_select"
+            )
+
+            delete_customer = next(
+                customer
+                for customer in all_customers
+                if customer["id"] == delete_id
+            )
+
+            st.warning(
+                f'You are about to delete: '
+                f'{delete_customer["company_name"]}'
+            )
+
+            confirm_delete = st.checkbox(
+                "I confirm that I want to delete this customer",
+                key=f"confirm_delete_{delete_id}"
+            )
+
+            if st.button(
+                "Delete Customer",
+                key=f"delete_button_{delete_id}"
+            ):
+                if not confirm_delete:
+                    st.error("Please confirm the deletion first.")
+                else:
+                    (
+                        supabase
+                        .table("customers")
+                        .delete()
+                        .eq("id", delete_id)
+                        .execute()
+                    )
+
+                    st.success("Customer deleted successfully.")
+                    st.rerun()
     # -----------------------------
     # SEARCH CUSTOMERS
     # -----------------------------

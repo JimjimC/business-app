@@ -863,6 +863,58 @@ elif page == "Products":
 
                         st.success("Product updated successfully.")
                         st.rerun()
+                            
+    # -----------------------------
+    # DELETE PRODUCT
+    # -----------------------------
+
+    if products:
+        with st.expander("🗑️ Delete Product"):
+
+            delete_id = st.selectbox(
+                "Select product to delete",
+                [product["id"] for product in products],
+                format_func=lambda product_id: next(
+                    product["product_name"]
+                    for product in products
+                    if product["id"] == product_id
+                ),
+                key="delete_product_select"
+            )
+
+            delete_product = next(
+                product
+                for product in products
+                if product["id"] == delete_id
+            )
+
+            st.warning(
+                f'You are about to delete: '
+                f'{delete_product["product_name"]}'
+            )
+
+            confirm_delete = st.checkbox(
+                "I confirm that I want to delete this product",
+                key=f"confirm_product_delete_{delete_id}"
+            )
+
+            if st.button(
+                "Delete Product",
+                key=f"delete_product_button_{delete_id}"
+            ):
+                if not confirm_delete:
+                    st.error("Please confirm the deletion first.")
+                else:
+                    (
+                        supabase
+                        .table("products")
+                        .delete()
+                        .eq("id", delete_id)
+                        .execute()
+                    )
+
+                    st.success("Product deleted successfully.")
+                    st.rerun()
     # -----------------------------
     # SEARCH PRODUCTS
     # -----------------------------

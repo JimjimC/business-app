@@ -303,9 +303,91 @@ elif page == "Customers":
 
 elif page == "Suppliers":
     st.header("Suppliers")
-    st.write("Supplier database will appear here.")
+
+    # -----------------------------
+    # ADD NEW SUPPLIER
+    # -----------------------------
+
+    with st.expander("➕ Add New Supplier"):
+        with st.form("add_supplier_form"):
+            company_name = st.text_input("Company name")
+            contact_person = st.text_input("Contact person")
+            phone = st.text_input("Phone")
+            email = st.text_input("Email")
+            address = st.text_input("Address")
+            category = st.text_input("Category")
+            notes = st.text_area("Notes")
+            status = st.selectbox(
+                "Status",
+                ["Active", "Inactive"]
+            )
+
+            submitted = st.form_submit_button("Save Supplier")
+
+            if submitted:
+                if not company_name.strip():
+                    st.error("Company name is required.")
+                else:
+                    supabase.table("suppliers").insert({
+                        "company_name": company_name,
+                        "contact_person": contact_person,
+                        "phone": phone,
+                        "email": email,
+                        "address": address,
+                        "category": category,
+                        "notes": notes,
+                        "status": status
+                    }).execute()
+
+                    st.success("Supplier saved successfully.")
+                    st.rerun()
+
+    # -----------------------------
+    # GET SUPPLIERS
+    # -----------------------------
+
+    response = (
+        supabase
+        .table("suppliers")
+        .select("*")
+        .order("id")
+        .execute()
+    )
+
+    suppliers = response.data
+
+    # -----------------------------
+    # SEARCH SUPPLIERS
+    # -----------------------------
+
+    search = st.text_input(
+        "🔎 Search suppliers",
+        placeholder="Search by company, contact, phone, email or category"
+    )
+
+    if search:
+        search_lower = search.lower()
+
+        suppliers = [
+            supplier for supplier in suppliers
+            if search_lower in str(supplier.get("company_name", "")).lower()
+            or search_lower in str(supplier.get("contact_person", "")).lower()
+            or search_lower in str(supplier.get("phone", "")).lower()
+            or search_lower in str(supplier.get("email", "")).lower()
+            or search_lower in str(supplier.get("category", "")).lower()
+        ]
+
+    # -----------------------------
+    # DISPLAY SUPPLIERS
+    # -----------------------------
+
+    if suppliers:
+        st.dataframe(
+            suppliers,
+            use_container_width=True
+        )
+    else:
+        st.info("No suppliers found.")
 
 
-elif page == "Suppliers":
-    st.header("Suppliers")
-    st.write("Supplier database will appear here.")
+

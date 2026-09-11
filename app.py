@@ -947,7 +947,7 @@ elif page == "Products":
         )
     else:
         st.info("No products found.")
-        elif page == "Invoices":
+if page == "Invoices":
     st.header("Invoices")
 
     # -----------------------------

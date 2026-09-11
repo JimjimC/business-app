@@ -49,7 +49,7 @@ st.title("Business Database App")
 
 page = st.sidebar.radio(
     "Menu",
-    ["Home", "Customers", "Suppliers"]
+    ["Home", "Customers", "Suppliers", "Products"]
 )
 
 if st.sidebar.button("Log out"):
@@ -600,4 +600,156 @@ elif page == "Suppliers":
     else:
         st.info("No suppliers found.")
 
+elif page == "Products":
+    st.header("Products")
 
+    # -----------------------------
+    # GET SUPPLIERS
+    # -----------------------------
+
+    supplier_response = (
+        supabase
+        .table("suppliers")
+        .select("id, company_name")
+        .order("company_name")
+        .execute()
+    )
+
+    supplier_list = supplier_response.data
+
+    supplier_names = {
+        supplier["id"]: supplier["company_name"]
+        for supplier in supplier_list
+    }
+
+    # -----------------------------
+    # ADD NEW PRODUCT
+    # -----------------------------
+
+    with st.expander("➕ Add New Product"):
+
+        if not supplier_list:
+            st.warning("You need at least one supplier before adding products.")
+
+        else:
+            with st.form("add_product_form"):
+                product_name = st.text_input("Product name")
+                product_code = st.text_input("Product code")
+
+                supplier_id = st.selectbox(
+                    "Supplier",
+                    [supplier["id"] for supplier in supplier_list],
+                    format_func=lambda supplier_id: supplier_names[supplier_id]
+                )
+
+                category = st.text_input("Category")
+                unit = st.text_input(
+                    "Unit",
+                    placeholder="Example: bottle, carton, kg"
+                )
+
+                cost_price = st.number_input(
+                    "Cost price",
+                    min_value=0.0,
+                    step=0.01
+                )
+
+                selling_price = st.number_input(
+                    "Selling price",
+                    min_value=0.0,
+                    step=0.01
+                )
+
+                stock_quantity = st.number_input(
+                    "Stock quantity",
+                    min_value=0.0,
+                    step=1.0
+                )
+
+                notes = st.text_area("Notes")
+
+                status = st.selectbox(
+                    "Status",
+                    ["Active", "Inactive"]
+                )
+
+                submitted = st.form_submit_button("Save Product")
+
+                if submitted:
+                    if not product_name.strip():
+                        st.error("Product name is required.")
+                    else:
+                        supabase.table("products").insert({
+                            "product_name": product_name,
+                            "product_code": product_code,
+                            "supplier_id": supplier_id,
+                            "category": category,
+                            "unit": unit,
+                            "cost_price": cost_price,
+                            "selling_price": selling_price,
+                            "stock_quantity": stock_quantity,
+                            "notes": notes,
+                            "status": status
+                        }).execute()
+
+                        st.success("Product saved successfully.")
+                        st.rerun()
+
+    # -----------------------------
+    # GET PRODUCTS
+    # -----------------------------
+
+    product_response = (
+        supabase
+        .table("products")
+        .select("*")
+        .order("id")
+        .execute()
+    )
+
+    products = product_response.data
+
+    # Replace supplier ID with supplier name for display
+    display_products = []
+
+    for product in products:
+        product_copy = product.copy()
+
+        product_copy["supplier"] = supplier_names.get(
+            product.get("supplier_id"),
+            "Unknown"
+        )
+
+        display_products.append(product_copy)
+
+    # -----------------------------
+    # SEARCH PRODUCTS
+    # -----------------------------
+
+    search = st.text_input(
+        "🔎 Search products",
+        placeholder="Search by product, code, supplier or category"
+    )
+
+    if search:
+        search_lower = search.lower()
+
+        display_products = [
+            product for product in display_products
+            if search_lower in str(product.get("product_name", "")).lower()
+            or search_lower in str(product.get("product_code", "")).lower()
+            or search_lower in str(product.get("supplier", "")).lower()
+            or search_lower in str(product.get("category", "")).lower()
+        ]
+
+    # -----------------------------
+    # DISPLAY PRODUCTS
+    # -----------------------------
+
+    if display_products:
+        st.dataframe(
+            display_products,
+            use_container_width=True
+        )
+    else:
+        st.info("No products found.")

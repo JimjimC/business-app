@@ -58,8 +58,58 @@ if st.sidebar.button("Log out"):
 
 
 if page == "Home":
-    st.header("Home")
-    st.write("Welcome to the Business Database.")
+    st.header("Business Dashboard")
+
+    customer_response = (
+        supabase
+        .table("customers")
+        .select("*")
+        .execute()
+    )
+
+    supplier_response = (
+        supabase
+        .table("suppliers")
+        .select("*")
+        .execute()
+    )
+
+    customers = customer_response.data
+    suppliers = supplier_response.data
+
+    active_customers = [
+        customer for customer in customers
+        if customer.get("status") == "Active"
+    ]
+
+    active_suppliers = [
+        supplier for supplier in suppliers
+        if supplier.get("status") == "Active"
+    ]
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.metric(
+            "Customers",
+            len(customers)
+        )
+
+        st.metric(
+            "Active Customers",
+            len(active_customers)
+        )
+
+    with col2:
+        st.metric(
+            "Suppliers",
+            len(suppliers)
+        )
+
+        st.metric(
+            "Active Suppliers",
+            len(active_suppliers)
+        )
 
 elif page == "Customers":
     st.header("Customers")

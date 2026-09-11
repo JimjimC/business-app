@@ -354,11 +354,122 @@ elif page == "Suppliers":
         .execute()
     )
 
-    suppliers = response.data
+    all_suppliers = response.data
+
+    # -----------------------------
+    # EDIT SUPPLIER
+    # -----------------------------
+
+    if all_suppliers:
+        with st.expander("✏️ Edit Supplier"):
+
+            supplier_ids = [
+                supplier["id"]
+                for supplier in all_suppliers
+            ]
+
+            selected_id = st.selectbox(
+                "Select supplier",
+                supplier_ids,
+                format_func=lambda supplier_id: next(
+                    supplier["company_name"]
+                    for supplier in all_suppliers
+                    if supplier["id"] == supplier_id
+                )
+            )
+
+            selected_supplier = next(
+                supplier
+                for supplier in all_suppliers
+                if supplier["id"] == selected_id
+            )
+
+            with st.form("edit_supplier_form"):
+
+                edit_company_name = st.text_input(
+                    "Company name",
+                    value=selected_supplier.get("company_name") or "",
+                    key=f"edit_supplier_company_{selected_id}"
+                )
+
+                edit_contact_person = st.text_input(
+                    "Contact person",
+                    value=selected_supplier.get("contact_person") or "",
+                    key=f"edit_supplier_contact_{selected_id}"
+                )
+
+                edit_phone = st.text_input(
+                    "Phone",
+                    value=selected_supplier.get("phone") or "",
+                    key=f"edit_supplier_phone_{selected_id}"
+                )
+
+                edit_email = st.text_input(
+                    "Email",
+                    value=selected_supplier.get("email") or "",
+                    key=f"edit_supplier_email_{selected_id}"
+                )
+
+                edit_address = st.text_input(
+                    "Address",
+                    value=selected_supplier.get("address") or "",
+                    key=f"edit_supplier_address_{selected_id}"
+                )
+
+                edit_category = st.text_input(
+                    "Category",
+                    value=selected_supplier.get("category") or "",
+                    key=f"edit_supplier_category_{selected_id}"
+                )
+
+                edit_notes = st.text_area(
+                    "Notes",
+                    value=selected_supplier.get("notes") or "",
+                    key=f"edit_supplier_notes_{selected_id}"
+                )
+
+                current_status = selected_supplier.get("status") or "Active"
+
+                edit_status = st.selectbox(
+                    "Status",
+                    ["Active", "Inactive"],
+                    index=0 if current_status == "Active" else 1,
+                    key=f"edit_supplier_status_{selected_id}"
+                )
+
+                update_submitted = st.form_submit_button(
+                    "Save Changes"
+                )
+
+                if update_submitted:
+                    if not edit_company_name.strip():
+                        st.error("Company name is required.")
+                    else:
+                        (
+                            supabase
+                            .table("suppliers")
+                            .update({
+                                "company_name": edit_company_name,
+                                "contact_person": edit_contact_person,
+                                "phone": edit_phone,
+                                "email": edit_email,
+                                "address": edit_address,
+                                "category": edit_category,
+                                "notes": edit_notes,
+                                "status": edit_status
+                            })
+                            .eq("id", selected_id)
+                            .execute()
+                        )
+
+                        st.success("Supplier updated successfully.")
+                        st.rerun()
 
     # -----------------------------
     # SEARCH SUPPLIERS
     # -----------------------------
+
+    suppliers = all_suppliers
 
     search = st.text_input(
         "🔎 Search suppliers",
@@ -388,6 +499,5 @@ elif page == "Suppliers":
         )
     else:
         st.info("No suppliers found.")
-
 
 

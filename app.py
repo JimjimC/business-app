@@ -721,7 +721,148 @@ elif page == "Products":
         )
 
         display_products.append(product_copy)
+    # -----------------------------
+    # EDIT PRODUCT
+    # -----------------------------
 
+    if products:
+        with st.expander("✏️ Edit Product"):
+
+            product_ids = [
+                product["id"]
+                for product in products
+            ]
+
+            selected_id = st.selectbox(
+                "Select product",
+                product_ids,
+                format_func=lambda product_id: next(
+                    product["product_name"]
+                    for product in products
+                    if product["id"] == product_id
+                )
+            )
+
+            selected_product = next(
+                product
+                for product in products
+                if product["id"] == selected_id
+            )
+
+            current_supplier_id = selected_product.get("supplier_id")
+
+            supplier_ids = [
+                supplier["id"]
+                for supplier in supplier_list
+            ]
+
+            if current_supplier_id in supplier_ids:
+                supplier_index = supplier_ids.index(current_supplier_id)
+            else:
+                supplier_index = 0
+
+            with st.form("edit_product_form"):
+
+                edit_product_name = st.text_input(
+                    "Product name",
+                    value=selected_product.get("product_name") or "",
+                    key=f"edit_product_name_{selected_id}"
+                )
+
+                edit_product_code = st.text_input(
+                    "Product code",
+                    value=selected_product.get("product_code") or "",
+                    key=f"edit_product_code_{selected_id}"
+                )
+
+                edit_supplier_id = st.selectbox(
+                    "Supplier",
+                    supplier_ids,
+                    index=supplier_index,
+                    format_func=lambda supplier_id: supplier_names[supplier_id],
+                    key=f"edit_product_supplier_{selected_id}"
+                )
+
+                edit_category = st.text_input(
+                    "Category",
+                    value=selected_product.get("category") or "",
+                    key=f"edit_product_category_{selected_id}"
+                )
+
+                edit_unit = st.text_input(
+                    "Unit",
+                    value=selected_product.get("unit") or "",
+                    key=f"edit_product_unit_{selected_id}"
+                )
+
+                edit_cost_price = st.number_input(
+                    "Cost price",
+                    min_value=0.0,
+                    value=float(selected_product.get("cost_price") or 0),
+                    step=0.01,
+                    key=f"edit_product_cost_{selected_id}"
+                )
+
+                edit_selling_price = st.number_input(
+                    "Selling price",
+                    min_value=0.0,
+                    value=float(selected_product.get("selling_price") or 0),
+                    step=0.01,
+                    key=f"edit_product_selling_{selected_id}"
+                )
+
+                edit_stock_quantity = st.number_input(
+                    "Stock quantity",
+                    min_value=0.0,
+                    value=float(selected_product.get("stock_quantity") or 0),
+                    step=1.0,
+                    key=f"edit_product_stock_{selected_id}"
+                )
+
+                edit_notes = st.text_area(
+                    "Notes",
+                    value=selected_product.get("notes") or "",
+                    key=f"edit_product_notes_{selected_id}"
+                )
+
+                current_status = selected_product.get("status") or "Active"
+
+                edit_status = st.selectbox(
+                    "Status",
+                    ["Active", "Inactive"],
+                    index=0 if current_status == "Active" else 1,
+                    key=f"edit_product_status_{selected_id}"
+                )
+
+                update_submitted = st.form_submit_button(
+                    "Save Changes"
+                )
+
+                if update_submitted:
+                    if not edit_product_name.strip():
+                        st.error("Product name is required.")
+                    else:
+                        (
+                            supabase
+                            .table("products")
+                            .update({
+                                "product_name": edit_product_name,
+                                "product_code": edit_product_code,
+                                "supplier_id": edit_supplier_id,
+                                "category": edit_category,
+                                "unit": edit_unit,
+                                "cost_price": edit_cost_price,
+                                "selling_price": edit_selling_price,
+                                "stock_quantity": edit_stock_quantity,
+                                "notes": edit_notes,
+                                "status": edit_status
+                            })
+                            .eq("id", selected_id)
+                            .execute()
+                        )
+
+                        st.success("Product updated successfully.")
+                        st.rerun()
     # -----------------------------
     # SEARCH PRODUCTS
     # -----------------------------

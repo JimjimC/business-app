@@ -464,7 +464,57 @@ elif page == "Suppliers":
 
                         st.success("Supplier updated successfully.")
                         st.rerun()
+    # -----------------------------
+    # DELETE SUPPLIER
+    # -----------------------------
 
+    if all_suppliers:
+        with st.expander("🗑️ Delete Supplier"):
+
+            delete_id = st.selectbox(
+                "Select supplier to delete",
+                [supplier["id"] for supplier in all_suppliers],
+                format_func=lambda supplier_id: next(
+                    supplier["company_name"]
+                    for supplier in all_suppliers
+                    if supplier["id"] == supplier_id
+                ),
+                key="delete_supplier_select"
+            )
+
+            delete_supplier = next(
+                supplier
+                for supplier in all_suppliers
+                if supplier["id"] == delete_id
+            )
+
+            st.warning(
+                f'You are about to delete: '
+                f'{delete_supplier["company_name"]}'
+            )
+
+            confirm_delete = st.checkbox(
+                "I confirm that I want to delete this supplier",
+                key=f"confirm_supplier_delete_{delete_id}"
+            )
+
+            if st.button(
+                "Delete Supplier",
+                key=f"delete_supplier_button_{delete_id}"
+            ):
+                if not confirm_delete:
+                    st.error("Please confirm the deletion first.")
+                else:
+                    (
+                        supabase
+                        .table("suppliers")
+                        .delete()
+                        .eq("id", delete_id)
+                        .execute()
+                    )
+
+                    st.success("Supplier deleted successfully.")
+                    st.rerun()
     # -----------------------------
     # SEARCH SUPPLIERS
     # -----------------------------

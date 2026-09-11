@@ -1,5 +1,6 @@
 import streamlit as st
 from supabase import create_client
+from datetime import date
 
 st.set_page_config(
     page_title="Business Database",
@@ -49,7 +50,7 @@ st.title("Business Database App")
 
 page = st.sidebar.radio(
     "Menu",
-    ["Home", "Customers", "Suppliers", "Products"]
+    ["Home", "Customers", "Suppliers", "Products", "Invoices"]
 )
 
 if st.sidebar.button("Log out"):
@@ -946,3 +947,123 @@ elif page == "Products":
         )
     else:
         st.info("No products found.")
+        elif page == "Invoices":
+    st.header("Invoices")
+
+    # -----------------------------
+    # GET CUSTOMERS
+    # -----------------------------
+
+    customer_response = (
+        supabase
+        .table("customers")
+        .select("id, company_name")
+        .order("company_name")
+        .execute()
+    )
+
+    customer_list = customer_response.data
+
+    customer_names = {
+        customer["id"]: customer["company_name"]
+        for customer in customer_list
+    }
+
+    # -----------------------------
+    # CREATE INVOICE
+    # -----------------------------
+
+    with st.expander("➕ Create Invoice"):
+
+        if not customer_list:
+            st.warning("You need at least one customer before creating an invoice.")
+
+        else:
+            with st.form("create_invoice_form"):
+
+                invoice_number = st.text_input(
+                    "Invoice number",
+                    placeholder="Example: INV-1001"
+                )
+
+                customer_id = st.selectbox(
+                    "Customer",
+                    [customer["id"] for customer in customer_list],
+                    format_func=lambda customer_id: customer_names[customer_id]
+                )
+
+                invoice_date = st.date_input(
+                    "Invoice date",
+                    value=date.today()
+                )
+
+                due_date = st.date_input(
+                    "Due date",
+                    value=date.today()
+                )
+
+                status = st.selectbox(
+                    "Status",
+                    ["Draft", "Unpaid", "Paid", "Cancelled"]
+                )
+
+                notes = st.text_area("Notes")
+
+                submitted = st.form_submit_button("Create Invoice")
+
+                if submitted:
+                    if not invoice_number.strip():
+                        st.error("Invoice number is required.")
+                    else:
+                        supabase.table("invoices").insert({
+                            "invoice_number": invoice_number,
+                            "customer_id": customer_id,
+                            "invoice_date": str(invoice_date),
+                            "due_date": str(due_date),
+                            "status": status,
+                            "subtotal": 0,
+                            "tax_amount": 0,
+                            "total_amount": 0,
+                            "notes": notes
+                        }).execute()
+
+                        st.success("Invoice created successfully.")
+                        st.rerun()
+
+    # -----------------------------
+    # GET INVOICES
+    # -----------------------------
+
+    invoice_response = (
+        supabase
+        .table("invoices")
+        .select("*")
+        .order("id")
+        .execute()
+    )
+
+    invoices = invoice_response.data
+
+    # -----------------------------
+    # DISPLAY INVOICES
+    # -----------------------------
+
+    display_invoices = []
+
+    for invoice in invoices:
+        invoice_copy = invoice.copy()
+
+        invoice_copy["customer"] = customer_names.get(
+            invoice.get("customer_id"),
+            "Unknown"
+        )
+
+        display_invoices.append(invoice_copy)
+
+    if display_invoices:
+        st.dataframe(
+            display_invoices,
+            use_container_width=True
+        )
+    else:
+        st.info("No invoices found.")

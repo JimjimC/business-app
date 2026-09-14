@@ -1259,6 +1259,123 @@ if page == "Invoices":
 
             else:
                 st.info("This invoice has no product lines yet.")
+
+        # -----------------------------
+    # REMOVE PRODUCT LINE
+    # -----------------------------
+
+    if invoices:
+        with st.expander("🗑️ Remove Product Line"):
+
+            remove_invoice_id = st.selectbox(
+                "Select invoice",
+                [invoice["id"] for invoice in invoices],
+                format_func=lambda invoice_id: next(
+                    f'{invoice["invoice_number"]} - '
+                    f'{customer_names.get(invoice["customer_id"], "Unknown")}'
+                    for invoice in invoices
+                    if invoice["id"] == invoice_id
+                ),
+                key="remove_line_invoice"
+            )
+
+            remove_items_response = (
+                supabase
+                .table("invoice_items")
+                .select("*")
+                .eq("invoice_id", remove_invoice_id)
+                .order("id")
+                .execute()
+            )
+
+            remove_items = remove_items_response.data
+
+            if remove_items:
+
+                remove_item_id = st.selectbox(
+                    "Select product line",
+                    [item["id"] for item in remove_items],
+                    format_func=lambda item_id: next(
+                        f'{item["description"]} - '
+                        f'Qty {item["quantity"]} - '
+                        f'{float(item["line_total"]):.2f}'
+                        for item in remove_items
+                        if item["id"] == item_id
+                    ),
+                    key="remove_invoice_item"
+                )
+
+                selected_remove_item = next(
+                    item
+                    for item in remove_items
+                    if item["id"] == remove_item_id
+                )
+
+                st.warning(
+                    f'You are about to remove: '
+                    f'{selected_remove_item["description"]}'
+                )
+
+                confirm_remove = st.checkbox(
+                    "I confirm that I want to remove this product line",
+                    key=f"confirm_remove_line_{remove_item_id}"
+                )
+
+                if st.button(
+                    "Remove Product Line",
+                    key=f"remove_line_button_{remove_item_id}"
+                ):
+
+                    if not confirm_remove:
+                        st.error("Please confirm the removal first.")
+
+                    else:
+                        # Delete product line
+                        (
+                            supabase
+                            .table("invoice_items")
+                            .delete()
+                            .eq("id", remove_item_id)
+                            .execute()
+                        )
+
+                        # Get remaining invoice lines
+                        remaining_response = (
+                            supabase
+                            .table("invoice_items")
+                            .select("line_total")
+                            .eq("invoice_id", remove_invoice_id)
+                            .execute()
+                        )
+
+                        remaining_items = remaining_response.data
+
+                        subtotal = sum(
+                            float(item.get("line_total") or 0)
+                            for item in remaining_items
+                        )
+
+                        tax_amount = 0
+                        total_amount = subtotal + tax_amount
+
+                        # Update invoice totals
+                        (
+                            supabase
+                            .table("invoices")
+                            .update({
+                                "subtotal": subtotal,
+                                "tax_amount": tax_amount,
+                                "total_amount": total_amount
+                            })
+                            .eq("id", remove_invoice_id)
+                            .execute()
+                        )
+
+                        st.success("Product line removed.")
+                        st.rerun()
+
+            else:
+                st.info("This invoice has no product lines.")
     # -----------------------------
     # DISPLAY INVOICES
     # -----------------------------

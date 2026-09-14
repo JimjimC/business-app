@@ -1618,7 +1618,9 @@ if page == "Invoices":
                     )
                 )
 
-                            current_status = selected_edit_invoice.get("status") or "Draft"
+                current_status = (
+                    selected_edit_invoice.get("status") or "Draft"
+                )
 
                 if current_status == "Paid":
                     edit_status = st.selectbox(
@@ -1655,6 +1657,7 @@ if page == "Invoices":
                     "Notes",
                     value=selected_edit_invoice.get("notes") or ""
                 )
+
                 update_invoice = st.form_submit_button(
                     "Save Invoice Changes"
                 )
@@ -1683,6 +1686,7 @@ if page == "Invoices":
                         st.success("Invoice updated successfully.")
                         st.rerun()
 
+   
     # -----------------------------
     # DELETE INVOICE
     # -----------------------------

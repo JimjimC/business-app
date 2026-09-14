@@ -1376,6 +1376,125 @@ if page == "Invoices":
 
             else:
                 st.info("This invoice has no product lines.")
+
+        # -----------------------------
+    # EDIT INVOICE
+    # -----------------------------
+
+    if invoices:
+        with st.expander("✏️ Edit Invoice"):
+
+            edit_invoice_id = st.selectbox(
+                "Select invoice to edit",
+                [invoice["id"] for invoice in invoices],
+                format_func=lambda invoice_id: next(
+                    f'{invoice["invoice_number"]} - '
+                    f'{customer_names.get(invoice["customer_id"], "Unknown")}'
+                    for invoice in invoices
+                    if invoice["id"] == invoice_id
+                ),
+                key="edit_invoice_select"
+            )
+
+            selected_edit_invoice = next(
+                invoice
+                for invoice in invoices
+                if invoice["id"] == edit_invoice_id
+            )
+
+            customer_ids = [
+                customer["id"]
+                for customer in customer_list
+            ]
+
+            current_customer_id = selected_edit_invoice["customer_id"]
+
+            if current_customer_id in customer_ids:
+                customer_index = customer_ids.index(current_customer_id)
+            else:
+                customer_index = 0
+
+            with st.form("edit_invoice_form"):
+
+                edit_invoice_number = st.text_input(
+                    "Invoice number",
+                    value=selected_edit_invoice.get("invoice_number") or ""
+                )
+
+                edit_customer_id = st.selectbox(
+                    "Customer",
+                    customer_ids,
+                    index=customer_index,
+                    format_func=lambda customer_id: customer_names[customer_id]
+                )
+
+                edit_invoice_date = st.date_input(
+                    "Invoice date",
+                    value=date.fromisoformat(
+                        selected_edit_invoice["invoice_date"]
+                    )
+                )
+
+                edit_due_date = st.date_input(
+                    "Due date",
+                    value=date.fromisoformat(
+                        selected_edit_invoice["due_date"]
+                    )
+                )
+
+                current_status = selected_edit_invoice.get("status") or "Draft"
+
+                status_options = [
+                    "Draft",
+                    "Unpaid",
+                    "Paid",
+                    "Cancelled"
+                ]
+
+                status_index = (
+                    status_options.index(current_status)
+                    if current_status in status_options
+                    else 0
+                )
+
+                edit_status = st.selectbox(
+                    "Status",
+                    status_options,
+                    index=status_index
+                )
+
+                edit_notes = st.text_area(
+                    "Notes",
+                    value=selected_edit_invoice.get("notes") or ""
+                )
+
+                update_invoice = st.form_submit_button(
+                    "Save Invoice Changes"
+                )
+
+                if update_invoice:
+
+                    if not edit_invoice_number.strip():
+                        st.error("Invoice number is required.")
+
+                    else:
+                        (
+                            supabase
+                            .table("invoices")
+                            .update({
+                                "invoice_number": edit_invoice_number,
+                                "customer_id": edit_customer_id,
+                                "invoice_date": str(edit_invoice_date),
+                                "due_date": str(edit_due_date),
+                                "status": edit_status,
+                                "notes": edit_notes
+                            })
+                            .eq("id", edit_invoice_id)
+                            .execute()
+                        )
+
+                        st.success("Invoice updated successfully.")
+                        st.rerun()
     # -----------------------------
     # DISPLAY INVOICES
     # -----------------------------

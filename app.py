@@ -1712,45 +1712,70 @@ if page == "Invoices":
                 if invoice["id"] == delete_invoice_id
             )
 
-            st.warning(
-                f'You are about to permanently delete '
-                f'{delete_invoice["invoice_number"]}.'
+            # Check whether this invoice has payments
+            payment_check_response = (
+                supabase
+                .table("payments")
+                .select("id")
+                .eq("invoice_id", delete_invoice_id)
+                .execute()
             )
 
-            confirm_delete = st.checkbox(
-                "I confirm that I want to delete this invoice",
-                key=f"confirm_invoice_delete_{delete_invoice_id}"
-            )
+            invoice_payments = payment_check_response.data
 
-            if st.button(
-                "Delete Invoice",
-                key=f"delete_invoice_button_{delete_invoice_id}"
-            ):
+            if invoice_payments:
 
-                if not confirm_delete:
-                    st.error("Please confirm the deletion first.")
+                st.error(
+                    "This invoice cannot be deleted because "
+                    "payment history exists."
+                )
 
-                else:
-                    # Delete invoice product lines first
-                    (
-                        supabase
-                        .table("invoice_items")
-                        .delete()
-                        .eq("invoice_id", delete_invoice_id)
-                        .execute()
-                    )
+                st.info(
+                    "Financial records should be preserved. "
+                    "Use Cancelled status instead if necessary."
+                )
 
-                    # Delete invoice
-                    (
-                        supabase
-                        .table("invoices")
-                        .delete()
-                        .eq("id", delete_invoice_id)
-                        .execute()
-                    )
+            else:
 
-                    st.success("Invoice deleted successfully.")
-                    st.rerun()
+                st.warning(
+                    f'You are about to permanently delete '
+                    f'{delete_invoice["invoice_number"]}.'
+                )
+
+                confirm_delete = st.checkbox(
+                    "I confirm that I want to delete this invoice",
+                    key=f"confirm_invoice_delete_{delete_invoice_id}"
+                )
+
+                if st.button(
+                    "Delete Invoice",
+                    key=f"delete_invoice_button_{delete_invoice_id}"
+                ):
+
+                    if not confirm_delete:
+                        st.error("Please confirm the deletion first.")
+
+                    else:
+                        # Delete invoice product lines first
+                        (
+                            supabase
+                            .table("invoice_items")
+                            .delete()
+                            .eq("invoice_id", delete_invoice_id)
+                            .execute()
+                        )
+
+                        # Delete invoice
+                        (
+                            supabase
+                            .table("invoices")
+                            .delete()
+                            .eq("id", delete_invoice_id)
+                            .execute()
+                        )
+
+                        st.success("Invoice deleted successfully.")
+                        st.rerun()
     # -----------------------------
     # DISPLAY INVOICES
     # -----------------------------

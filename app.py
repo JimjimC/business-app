@@ -1404,7 +1404,8 @@ if page == "Invoices":
                             "description": selected_product["product_name"],
                             "quantity": quantity,
                             "unit_price": unit_price,
-                            "line_total": line_total
+                            "line_total": line_total,
+                            "stock_deducted": True
                         }).execute()
 
                         # Reduce product stock

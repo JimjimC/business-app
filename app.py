@@ -1495,6 +1495,71 @@ if page == "Invoices":
 
                         st.success("Invoice updated successfully.")
                         st.rerun()
+
+        # -----------------------------
+    # DELETE INVOICE
+    # -----------------------------
+
+    if invoices:
+        with st.expander("🗑️ Delete Invoice"):
+
+            delete_invoice_id = st.selectbox(
+                "Select invoice to delete",
+                [invoice["id"] for invoice in invoices],
+                format_func=lambda invoice_id: next(
+                    f'{invoice["invoice_number"]} - '
+                    f'{customer_names.get(invoice["customer_id"], "Unknown")}'
+                    for invoice in invoices
+                    if invoice["id"] == invoice_id
+                ),
+                key="delete_invoice_select"
+            )
+
+            delete_invoice = next(
+                invoice
+                for invoice in invoices
+                if invoice["id"] == delete_invoice_id
+            )
+
+            st.warning(
+                f'You are about to permanently delete '
+                f'{delete_invoice["invoice_number"]}.'
+            )
+
+            confirm_delete = st.checkbox(
+                "I confirm that I want to delete this invoice",
+                key=f"confirm_invoice_delete_{delete_invoice_id}"
+            )
+
+            if st.button(
+                "Delete Invoice",
+                key=f"delete_invoice_button_{delete_invoice_id}"
+            ):
+
+                if not confirm_delete:
+                    st.error("Please confirm the deletion first.")
+
+                else:
+                    # Delete invoice product lines first
+                    (
+                        supabase
+                        .table("invoice_items")
+                        .delete()
+                        .eq("invoice_id", delete_invoice_id)
+                        .execute()
+                    )
+
+                    # Delete invoice
+                    (
+                        supabase
+                        .table("invoices")
+                        .delete()
+                        .eq("id", delete_invoice_id)
+                        .execute()
+                    )
+
+                    st.success("Invoice deleted successfully.")
+                    st.rerun()
     # -----------------------------
     # DISPLAY INVOICES
     # -----------------------------

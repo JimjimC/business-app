@@ -742,33 +742,60 @@ elif page == "Suppliers":
                 if supplier["id"] == delete_id
             )
 
-            st.warning(
-                f'You are about to delete: '
-                f'{delete_supplier["company_name"]}'
+            # Check whether supplier has products
+            supplier_product_response = (
+                supabase
+                .table("products")
+                .select("id")
+                .eq("supplier_id", delete_id)
+                .execute()
             )
 
-            confirm_delete = st.checkbox(
-                "I confirm that I want to delete this supplier",
-                key=f"confirm_supplier_delete_{delete_id}"
-            )
+            supplier_products = supplier_product_response.data
 
-            if st.button(
-                "Delete Supplier",
-                key=f"delete_supplier_button_{delete_id}"
-            ):
-                if not confirm_delete:
-                    st.error("Please confirm the deletion first.")
-                else:
-                    (
-                        supabase
-                        .table("suppliers")
-                        .delete()
-                        .eq("id", delete_id)
-                        .execute()
-                    )
+            if supplier_products:
 
-                    st.success("Supplier deleted successfully.")
-                    st.rerun()
+                st.error(
+                    "This supplier cannot be deleted because "
+                    "products are linked to it."
+                )
+
+                st.info(
+                    "Keep the supplier record for historical purposes. "
+                    "You can change the supplier status to Inactive instead."
+                )
+
+            else:
+
+                st.warning(
+                    f'You are about to delete: '
+                    f'{delete_supplier["company_name"]}'
+                )
+
+                confirm_delete = st.checkbox(
+                    "I confirm that I want to delete this supplier",
+                    key=f"confirm_supplier_delete_{delete_id}"
+                )
+
+                if st.button(
+                    "Delete Supplier",
+                    key=f"delete_supplier_button_{delete_id}"
+                ):
+
+                    if not confirm_delete:
+                        st.error("Please confirm the deletion first.")
+
+                    else:
+                        (
+                            supabase
+                            .table("suppliers")
+                            .delete()
+                            .eq("id", delete_id)
+                            .execute()
+                        )
+
+                        st.success("Supplier deleted successfully.")
+                        st.rerun()
     # -----------------------------
     # SEARCH SUPPLIERS
     # -----------------------------

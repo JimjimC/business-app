@@ -1312,7 +1312,7 @@ if page == "Invoices":
             invoice_product_response = (
                 supabase
                 .table("products")
-                .select("id, product_name, selling_price")
+                .select("id, product_name, selling_price, stock_quantity")
                 .eq("status", "Active")
                 .order("product_name")
                 .execute()
@@ -1368,6 +1368,13 @@ if page == "Invoices":
                     ),
                     step=0.01
                 )
+                available_stock = float(
+                    selected_product.get("stock_quantity") or 0
+                )
+
+                st.write(
+                    f"**Available stock: {available_stock:g}**"
+                )
 
                 line_total = round(quantity * unit_price, 2)
 
@@ -1375,7 +1382,71 @@ if page == "Invoices":
                     f"**Line total: {line_total:.2f}**"
                 )
 
-                if st.button("Add Product to Invoice"):
+                                if st.button("Add Product to Invoice"):
+
+                    if quantity > available_stock:
+                        st.error(
+                            f"Not enough stock. "
+                            f"Available: {available_stock:g}"
+                        )
+
+                    else:
+                        # Save invoice line
+                        supabase.table("invoice_items").insert({
+                            "invoice_id": selected_invoice_id,
+                            "product_id": selected_product_id,
+                            "description": selected_product["product_name"],
+                            "quantity": quantity,
+                            "unit_price": unit_price,
+                            "line_total": line_total
+                        }).execute()
+
+                        # Reduce product stock
+                        new_stock = available_stock - quantity
+
+                        (
+                            supabase
+                            .table("products")
+                            .update({
+                                "stock_quantity": new_stock
+                            })
+                            .eq("id", selected_product_id)
+                            .execute()
+                        )
+
+                        # Get all lines for this invoice
+                        items_response = (
+                            supabase
+                            .table("invoice_items")
+                            .select("line_total")
+                            .eq("invoice_id", selected_invoice_id)
+                            .execute()
+                        )
+
+                        items = items_response.data
+
+                        subtotal = sum(
+                            float(item.get("line_total") or 0)
+                            for item in items
+                        )
+
+                        tax_amount = 0
+                        total_amount = subtotal + tax_amount
+
+                        (
+                            supabase
+                            .table("invoices")
+                            .update({
+                                "subtotal": subtotal,
+                                "tax_amount": tax_amount,
+                                "total_amount": total_amount
+                            })
+                            .eq("id", selected_invoice_id)
+                            .execute()
+                        )
+
+                        st.success("Product added and stock updated.")
+                        st.rerun()
 
                     # Save invoice line
                     supabase.table("invoice_items").insert({

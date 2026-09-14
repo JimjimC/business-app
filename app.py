@@ -131,7 +131,7 @@ if page == "Home":
             + float(payment.get("amount") or 0)
         )
 
-       # -----------------------------
+    # -----------------------------
     # OUTSTANDING + OVERDUE INVOICES
     # -----------------------------
 
@@ -262,8 +262,6 @@ if page == "Home":
         f"{total_payments_received:,.2f}"
     )
 
-elif page == "Customers":
-    st.header("Customers")
     st.divider()
 
     col1, col2 = st.columns(2)
@@ -289,6 +287,10 @@ elif page == "Customers":
         )
     else:
         st.success("No overdue invoices.")
+
+
+elif page == "Customers":
+    st.header("Customers")
     # -----------------------------
     # ADD NEW CUSTOMER
     # -----------------------------

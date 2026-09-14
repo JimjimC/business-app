@@ -466,33 +466,60 @@ elif page == "Customers":
                 if customer["id"] == delete_id
             )
 
-            st.warning(
-                f'You are about to delete: '
-                f'{delete_customer["company_name"]}'
+            # Check whether customer has invoices
+            customer_invoice_response = (
+                supabase
+                .table("invoices")
+                .select("id")
+                .eq("customer_id", delete_id)
+                .execute()
             )
 
-            confirm_delete = st.checkbox(
-                "I confirm that I want to delete this customer",
-                key=f"confirm_delete_{delete_id}"
-            )
+            customer_invoices = customer_invoice_response.data
 
-            if st.button(
-                "Delete Customer",
-                key=f"delete_button_{delete_id}"
-            ):
-                if not confirm_delete:
-                    st.error("Please confirm the deletion first.")
-                else:
-                    (
-                        supabase
-                        .table("customers")
-                        .delete()
-                        .eq("id", delete_id)
-                        .execute()
-                    )
+            if customer_invoices:
 
-                    st.success("Customer deleted successfully.")
-                    st.rerun()
+                st.error(
+                    "This customer cannot be deleted because "
+                    "invoice history exists."
+                )
+
+                st.info(
+                    "Keep the customer record for historical purposes. "
+                    "You can change the customer status to Inactive instead."
+                )
+
+            else:
+
+                st.warning(
+                    f'You are about to delete: '
+                    f'{delete_customer["company_name"]}'
+                )
+
+                confirm_delete = st.checkbox(
+                    "I confirm that I want to delete this customer",
+                    key=f"confirm_delete_{delete_id}"
+                )
+
+                if st.button(
+                    "Delete Customer",
+                    key=f"delete_button_{delete_id}"
+                ):
+
+                    if not confirm_delete:
+                        st.error("Please confirm the deletion first.")
+
+                    else:
+                        (
+                            supabase
+                            .table("customers")
+                            .delete()
+                            .eq("id", delete_id)
+                            .execute()
+                        )
+
+                        st.success("Customer deleted successfully.")
+                        st.rerun()
     # -----------------------------
     # SEARCH CUSTOMERS
     # -----------------------------

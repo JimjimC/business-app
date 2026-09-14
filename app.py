@@ -1119,33 +1119,60 @@ elif page == "Products":
                 if product["id"] == delete_id
             )
 
-            st.warning(
-                f'You are about to delete: '
-                f'{delete_product["product_name"]}'
+            # Check whether product appears on invoice lines
+            product_invoice_response = (
+                supabase
+                .table("invoice_items")
+                .select("id")
+                .eq("product_id", delete_id)
+                .execute()
             )
 
-            confirm_delete = st.checkbox(
-                "I confirm that I want to delete this product",
-                key=f"confirm_product_delete_{delete_id}"
-            )
+            product_invoice_items = product_invoice_response.data
 
-            if st.button(
-                "Delete Product",
-                key=f"delete_product_button_{delete_id}"
-            ):
-                if not confirm_delete:
-                    st.error("Please confirm the deletion first.")
-                else:
-                    (
-                        supabase
-                        .table("products")
-                        .delete()
-                        .eq("id", delete_id)
-                        .execute()
-                    )
+            if product_invoice_items:
 
-                    st.success("Product deleted successfully.")
-                    st.rerun()
+                st.error(
+                    "This product cannot be deleted because "
+                    "it appears on invoice history."
+                )
+
+                st.info(
+                    "Keep the product for historical purposes. "
+                    "You can change its status to Inactive instead."
+                )
+
+            else:
+
+                st.warning(
+                    f'You are about to delete: '
+                    f'{delete_product["product_name"]}'
+                )
+
+                confirm_delete = st.checkbox(
+                    "I confirm that I want to delete this product",
+                    key=f"confirm_product_delete_{delete_id}"
+                )
+
+                if st.button(
+                    "Delete Product",
+                    key=f"delete_product_button_{delete_id}"
+                ):
+
+                    if not confirm_delete:
+                        st.error("Please confirm the deletion first.")
+
+                    else:
+                        (
+                            supabase
+                            .table("products")
+                            .delete()
+                            .eq("id", delete_id)
+                            .execute()
+                        )
+
+                        st.success("Product deleted successfully.")
+                        st.rerun()
     # -----------------------------
     # SEARCH PRODUCTS
     # -----------------------------

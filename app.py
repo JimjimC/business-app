@@ -1618,44 +1618,43 @@ if page == "Invoices":
                     )
                 )
 
-            current_status = selected_edit_invoice.get("status") or "Draft"
+                            current_status = selected_edit_invoice.get("status") or "Draft"
 
-if current_status == "Paid":
-    edit_status = st.selectbox(
-        "Status",
-        ["Paid"],
-        disabled=True
-    )
+                if current_status == "Paid":
+                    edit_status = st.selectbox(
+                        "Status",
+                        ["Paid"],
+                        disabled=True
+                    )
 
-    st.info(
-        "This invoice is Paid because its balance is zero. "
-        "Payment records control this status."
-    )
+                    st.info(
+                        "This invoice is Paid because its balance is zero. "
+                        "Payment records control this status."
+                    )
 
-else:
-    status_options = [
-        "Draft",
-        "Unpaid",
-        "Cancelled"
-    ]
+                else:
+                    status_options = [
+                        "Draft",
+                        "Unpaid",
+                        "Cancelled"
+                    ]
 
-    status_index = (
-        status_options.index(current_status)
-        if current_status in status_options
-        else 0
-    )
+                    status_index = (
+                        status_options.index(current_status)
+                        if current_status in status_options
+                        else 0
+                    )
 
-    edit_status = st.selectbox(
-        "Status",
-        status_options,
-        index=status_index
-    )
+                    edit_status = st.selectbox(
+                        "Status",
+                        status_options,
+                        index=status_index
+                    )
 
                 edit_notes = st.text_area(
                     "Notes",
                     value=selected_edit_invoice.get("notes") or ""
                 )
-
                 update_invoice = st.form_submit_button(
                     "Save Invoice Changes"
                 )

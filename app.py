@@ -131,12 +131,22 @@ if page == "Home":
             + float(payment.get("amount") or 0)
         )
 
+       # -----------------------------
+    # OUTSTANDING + OVERDUE INVOICES
     # -----------------------------
-    # OUTSTANDING INVOICES
-    # -----------------------------
+
+    customer_names = {
+        customer["id"]: customer["company_name"]
+        for customer in customers
+    }
 
     outstanding_amount = 0
     outstanding_count = 0
+
+    overdue_amount = 0
+    overdue_invoices = []
+
+    today = date.today()
 
     for invoice in invoices:
 
@@ -155,14 +165,38 @@ if page == "Home":
         balance = invoice_total - amount_paid
 
         if balance > 0.01:
+
             outstanding_count += 1
             outstanding_amount += balance
+
+            due_date_value = invoice.get("due_date")
+
+            if due_date_value:
+
+                invoice_due_date = date.fromisoformat(
+                    due_date_value
+                )
+
+                if invoice_due_date < today:
+
+                    overdue_amount += balance
+
+                    overdue_invoices.append({
+                        "Invoice": invoice["invoice_number"],
+                        "Customer": customer_names.get(
+                            invoice["customer_id"],
+                            "Unknown"
+                        ),
+                        "Due Date": due_date_value,
+                        "Balance": round(balance, 2)
+                    })
+
+    overdue_count = len(overdue_invoices)
 
     paid_invoices = [
         invoice for invoice in invoices
         if invoice.get("status") == "Paid"
     ]
-
     # -----------------------------
     # DASHBOARD
     # -----------------------------
@@ -230,7 +264,31 @@ if page == "Home":
 
 elif page == "Customers":
     st.header("Customers")
+    st.divider()
 
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.metric(
+            "Overdue Invoices",
+            overdue_count
+        )
+
+    with col2:
+        st.metric(
+            "Overdue Amount",
+            f"{overdue_amount:,.2f}"
+        )
+
+    st.subheader("Overdue Invoice Details")
+
+    if overdue_invoices:
+        st.dataframe(
+            overdue_invoices,
+            use_container_width=True
+        )
+    else:
+        st.success("No overdue invoices.")
     # -----------------------------
     # ADD NEW CUSTOMER
     # -----------------------------
@@ -1280,7 +1338,7 @@ if page == "Invoices":
 
                     st.success("Product added to invoice.")
                     st.rerun()
-        # -----------------------------
+    # -----------------------------
     # VIEW INVOICE DETAILS
     # -----------------------------
 
@@ -1376,7 +1434,7 @@ if page == "Invoices":
             else:
                 st.info("This invoice has no product lines yet.")
 
-        # -----------------------------
+    # -----------------------------
     # REMOVE PRODUCT LINE
     # -----------------------------
 
@@ -1493,7 +1551,7 @@ if page == "Invoices":
             else:
                 st.info("This invoice has no product lines.")
 
-        # -----------------------------
+    # -----------------------------
     # EDIT INVOICE
     # -----------------------------
 
@@ -1612,7 +1670,7 @@ if page == "Invoices":
                         st.success("Invoice updated successfully.")
                         st.rerun()
 
-        # -----------------------------
+    # -----------------------------
     # DELETE INVOICE
     # -----------------------------
 

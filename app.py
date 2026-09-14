@@ -1164,6 +1164,101 @@ if page == "Invoices":
 
                     st.success("Product added to invoice.")
                     st.rerun()
+        # -----------------------------
+    # VIEW INVOICE DETAILS
+    # -----------------------------
+
+    if invoices:
+        with st.expander("📄 View Invoice Details"):
+
+            view_invoice_id = st.selectbox(
+                "Select invoice to view",
+                [invoice["id"] for invoice in invoices],
+                format_func=lambda invoice_id: next(
+                    f'{invoice["invoice_number"]} - '
+                    f'{customer_names.get(invoice["customer_id"], "Unknown")}'
+                    for invoice in invoices
+                    if invoice["id"] == invoice_id
+                ),
+                key="view_invoice_select"
+            )
+
+            selected_invoice = next(
+                invoice
+                for invoice in invoices
+                if invoice["id"] == view_invoice_id
+            )
+
+            st.write(
+                f'**Customer:** '
+                f'{customer_names.get(selected_invoice["customer_id"], "Unknown")}'
+            )
+
+            st.write(
+                f'**Invoice number:** '
+                f'{selected_invoice["invoice_number"]}'
+            )
+
+            st.write(
+                f'**Invoice date:** '
+                f'{selected_invoice["invoice_date"]}'
+            )
+
+            st.write(
+                f'**Due date:** '
+                f'{selected_invoice["due_date"]}'
+            )
+
+            # Get invoice product lines
+            item_response = (
+                supabase
+                .table("invoice_items")
+                .select("*")
+                .eq("invoice_id", view_invoice_id)
+                .order("id")
+                .execute()
+            )
+
+            invoice_items = item_response.data
+
+            if invoice_items:
+                display_items = []
+
+                for item in invoice_items:
+                    display_items.append({
+                        "Product": item["description"],
+                        "Quantity": item["quantity"],
+                        "Unit Price": item["unit_price"],
+                        "Line Total": item["line_total"]
+                    })
+
+                st.dataframe(
+                    display_items,
+                    use_container_width=True
+                )
+
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    st.metric(
+                        "Subtotal",
+                        f'{float(selected_invoice["subtotal"] or 0):.2f}'
+                    )
+
+                with col2:
+                    st.metric(
+                        "Tax",
+                        f'{float(selected_invoice["tax_amount"] or 0):.2f}'
+                    )
+
+                with col3:
+                    st.metric(
+                        "Total",
+                        f'{float(selected_invoice["total_amount"] or 0):.2f}'
+                    )
+
+            else:
+                st.info("This invoice has no product lines yet.")
     # -----------------------------
     # DISPLAY INVOICES
     # -----------------------------

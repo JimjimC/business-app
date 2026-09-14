@@ -1180,7 +1180,7 @@ if page == "Invoices":
 
                 status = st.selectbox(
                     "Status",
-                    ["Draft", "Unpaid", "Paid", "Cancelled"]
+                    ["Draft", "Unpaid"]
                 )
 
                 notes = st.text_area("Notes")
@@ -1618,26 +1618,38 @@ if page == "Invoices":
                     )
                 )
 
-                current_status = selected_edit_invoice.get("status") or "Draft"
+               current_status = selected_edit_invoice.get("status") or "Draft"
 
-                status_options = [
-                    "Draft",
-                    "Unpaid",
-                    "Paid",
-                    "Cancelled"
-                ]
+if current_status == "Paid":
+    edit_status = st.selectbox(
+        "Status",
+        ["Paid"],
+        disabled=True
+    )
 
-                status_index = (
-                    status_options.index(current_status)
-                    if current_status in status_options
-                    else 0
-                )
+    st.info(
+        "This invoice is Paid because its balance is zero. "
+        "Payment records control this status."
+    )
 
-                edit_status = st.selectbox(
-                    "Status",
-                    status_options,
-                    index=status_index
-                )
+else:
+    status_options = [
+        "Draft",
+        "Unpaid",
+        "Cancelled"
+    ]
+
+    status_index = (
+        status_options.index(current_status)
+        if current_status in status_options
+        else 0
+    )
+
+    edit_status = st.selectbox(
+        "Status",
+        status_options,
+        index=status_index
+    )
 
                 edit_notes = st.text_area(
                     "Notes",

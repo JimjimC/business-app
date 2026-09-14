@@ -61,6 +61,10 @@ if st.sidebar.button("Log out"):
 if page == "Home":
     st.header("Business Dashboard")
 
+    # -----------------------------
+    # GET DATA
+    # -----------------------------
+
     customer_response = (
         supabase
         .table("customers")
@@ -75,8 +79,28 @@ if page == "Home":
         .execute()
     )
 
+    invoice_response = (
+        supabase
+        .table("invoices")
+        .select("*")
+        .execute()
+    )
+
+    payment_response = (
+        supabase
+        .table("payments")
+        .select("*")
+        .execute()
+    )
+
     customers = customer_response.data
     suppliers = supplier_response.data
+    invoices = invoice_response.data
+    payments = payment_response.data
+
+    # -----------------------------
+    # BASIC COUNTS
+    # -----------------------------
 
     active_customers = [
         customer for customer in customers
@@ -88,17 +112,67 @@ if page == "Home":
         if supplier.get("status") == "Active"
     ]
 
-    col1, col2 = st.columns(2)
+    # -----------------------------
+    # PAYMENT TOTALS
+    # -----------------------------
+
+    total_payments_received = sum(
+        float(payment.get("amount") or 0)
+        for payment in payments
+    )
+
+    payments_by_invoice = {}
+
+    for payment in payments:
+        invoice_id = payment["invoice_id"]
+
+        payments_by_invoice[invoice_id] = (
+            payments_by_invoice.get(invoice_id, 0)
+            + float(payment.get("amount") or 0)
+        )
+
+    # -----------------------------
+    # OUTSTANDING INVOICES
+    # -----------------------------
+
+    outstanding_amount = 0
+    outstanding_count = 0
+
+    for invoice in invoices:
+
+        if invoice.get("status") == "Cancelled":
+            continue
+
+        invoice_total = float(
+            invoice.get("total_amount") or 0
+        )
+
+        amount_paid = payments_by_invoice.get(
+            invoice["id"],
+            0
+        )
+
+        balance = invoice_total - amount_paid
+
+        if balance > 0.01:
+            outstanding_count += 1
+            outstanding_amount += balance
+
+    paid_invoices = [
+        invoice for invoice in invoices
+        if invoice.get("status") == "Paid"
+    ]
+
+    # -----------------------------
+    # DASHBOARD
+    # -----------------------------
+
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         st.metric(
             "Customers",
             len(customers)
-        )
-
-        st.metric(
-            "Active Customers",
-            len(active_customers)
         )
 
     with col2:
@@ -107,10 +181,52 @@ if page == "Home":
             len(suppliers)
         )
 
+    with col3:
+        st.metric(
+            "Invoices",
+            len(invoices)
+        )
+
+    with col4:
+        st.metric(
+            "Paid Invoices",
+            len(paid_invoices)
+        )
+
+    st.divider()
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.metric(
+            "Active Customers",
+            len(active_customers)
+        )
+
+    with col2:
         st.metric(
             "Active Suppliers",
             len(active_suppliers)
         )
+
+    with col3:
+        st.metric(
+            "Outstanding Invoices",
+            outstanding_count
+        )
+
+    with col4:
+        st.metric(
+            "Outstanding Amount",
+            f"{outstanding_amount:,.2f}"
+        )
+
+    st.divider()
+
+    st.metric(
+        "Total Payments Received",
+        f"{total_payments_received:,.2f}"
+    )
 
 elif page == "Customers":
     st.header("Customers")

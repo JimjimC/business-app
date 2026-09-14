@@ -50,7 +50,7 @@ st.title("Business Database App")
 
 page = st.sidebar.radio(
     "Menu",
-    ["Home", "Customers", "Suppliers", "Products", "Invoices"]
+    ["Home", "Customers", "Suppliers", "Products", "Invoices", "Payments"]
 )
 
 if st.sidebar.button("Log out"):
@@ -1583,3 +1583,257 @@ if page == "Invoices":
         )
     else:
         st.info("No invoices found.")
+
+if page == "Payments":
+    st.header("Payments")
+
+    # -----------------------------
+    # GET CUSTOMERS
+    # -----------------------------
+
+    payment_customer_response = (
+        supabase
+        .table("customers")
+        .select("id, company_name")
+        .execute()
+    )
+
+    payment_customers = payment_customer_response.data
+
+    payment_customer_names = {
+        customer["id"]: customer["company_name"]
+        for customer in payment_customers
+    }
+
+    # -----------------------------
+    # GET INVOICES
+    # -----------------------------
+
+    payment_invoice_response = (
+        supabase
+        .table("invoices")
+        .select("*")
+        .order("id")
+        .execute()
+    )
+
+    payment_invoices = payment_invoice_response.data
+
+    # -----------------------------
+    # GET EXISTING PAYMENTS
+    # -----------------------------
+
+    existing_payment_response = (
+        supabase
+        .table("payments")
+        .select("*")
+        .order("id")
+        .execute()
+    )
+
+    existing_payments = existing_payment_response.data
+
+    # -----------------------------
+    # CALCULATE BALANCES
+    # -----------------------------
+
+    invoice_balances = {}
+
+    for invoice in payment_invoices:
+
+        invoice_id = invoice["id"]
+
+        invoice_total = float(
+            invoice.get("total_amount") or 0
+        )
+
+        amount_paid = sum(
+            float(payment.get("amount") or 0)
+            for payment in existing_payments
+            if payment["invoice_id"] == invoice_id
+        )
+
+        balance = invoice_total - amount_paid
+
+        invoice_balances[invoice_id] = {
+            "total": invoice_total,
+            "paid": amount_paid,
+            "balance": balance
+        }
+
+    # Only show invoices that still have money due
+    unpaid_invoices = [
+        invoice
+        for invoice in payment_invoices
+        if invoice_balances[invoice["id"]]["balance"] > 0
+        and invoice.get("status") != "Cancelled"
+    ]
+
+    # -----------------------------
+    # RECORD PAYMENT
+    # -----------------------------
+
+    with st.expander("➕ Record Payment"):
+
+        if not unpaid_invoices:
+            st.info("There are no invoices with an outstanding balance.")
+
+        else:
+
+            payment_invoice_id = st.selectbox(
+                "Invoice",
+                [invoice["id"] for invoice in unpaid_invoices],
+                format_func=lambda invoice_id: next(
+                    f'{invoice["invoice_number"]} - '
+                    f'{payment_customer_names.get(invoice["customer_id"], "Unknown")}'
+                    for invoice in unpaid_invoices
+                    if invoice["id"] == invoice_id
+                )
+            )
+
+            selected_payment_invoice = next(
+                invoice
+                for invoice in unpaid_invoices
+                if invoice["id"] == payment_invoice_id
+            )
+
+            balance_info = invoice_balances[payment_invoice_id]
+
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                st.metric(
+                    "Invoice Total",
+                    f'{balance_info["total"]:.2f}'
+                )
+
+            with col2:
+                st.metric(
+                    "Already Paid",
+                    f'{balance_info["paid"]:.2f}'
+                )
+
+            with col3:
+                st.metric(
+                    "Balance Due",
+                    f'{balance_info["balance"]:.2f}'
+                )
+
+            with st.form("record_payment_form"):
+
+                payment_date = st.date_input(
+                    "Payment date",
+                    value=date.today()
+                )
+
+                amount = st.number_input(
+                    "Amount",
+                    min_value=0.01,
+                    max_value=float(balance_info["balance"]),
+                    value=float(balance_info["balance"]),
+                    step=0.01
+                )
+
+                payment_method = st.selectbox(
+                    "Payment method",
+                    [
+                        "Cash",
+                        "Bank Transfer",
+                        "Cheque",
+                        "Credit Card",
+                        "Other"
+                    ]
+                )
+
+                reference = st.text_input(
+                    "Reference"
+                )
+
+                payment_notes = st.text_area(
+                    "Notes"
+                )
+
+                payment_submitted = st.form_submit_button(
+                    "Save Payment"
+                )
+
+                if payment_submitted:
+
+                    supabase.table("payments").insert({
+                        "invoice_id": payment_invoice_id,
+                        "payment_date": str(payment_date),
+                        "amount": amount,
+                        "payment_method": payment_method,
+                        "reference": reference,
+                        "notes": payment_notes
+                    }).execute()
+
+                    new_paid_total = (
+                        balance_info["paid"] + amount
+                    )
+
+                    new_balance = (
+                        balance_info["total"] - new_paid_total
+                    )
+
+                    # Automatically update invoice status
+                    if new_balance <= 0.01:
+                        new_status = "Paid"
+                    else:
+                        new_status = "Unpaid"
+
+                    (
+                        supabase
+                        .table("invoices")
+                        .update({
+                            "status": new_status
+                        })
+                        .eq("id", payment_invoice_id)
+                        .execute()
+                    )
+
+                    st.success("Payment recorded successfully.")
+                    st.rerun()
+
+    # -----------------------------
+    # PAYMENT HISTORY
+    # -----------------------------
+
+    st.subheader("Payment History")
+
+    if existing_payments:
+
+        display_payments = []
+
+        for payment in existing_payments:
+
+            related_invoice = next(
+                (
+                    invoice
+                    for invoice in payment_invoices
+                    if invoice["id"] == payment["invoice_id"]
+                ),
+                None
+            )
+
+            if related_invoice:
+
+                display_payments.append({
+                    "Payment Date": payment["payment_date"],
+                    "Invoice": related_invoice["invoice_number"],
+                    "Customer": payment_customer_names.get(
+                        related_invoice["customer_id"],
+                        "Unknown"
+                    ),
+                    "Amount": payment["amount"],
+                    "Method": payment["payment_method"],
+                    "Reference": payment["reference"]
+                })
+
+        st.dataframe(
+            display_payments,
+            use_container_width=True
+        )
+
+    else:
+        st.info("No payments recorded yet.")

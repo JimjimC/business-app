@@ -1618,7 +1618,7 @@ if page == "Invoices":
                     )
                 )
 
-               current_status = selected_edit_invoice.get("status") or "Draft"
+            current_status = selected_edit_invoice.get("status") or "Draft"
 
 if current_status == "Paid":
     edit_status = st.selectbox(

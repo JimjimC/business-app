@@ -1803,7 +1803,7 @@ if page == "Invoices":
                         "This invoice has no product lines."
                     )
 
-    # -----------------------------
+        # -----------------------------
     # EDIT INVOICE
     # -----------------------------
 
@@ -1828,63 +1828,143 @@ if page == "Invoices":
                 if invoice["id"] == edit_invoice_id
             )
 
-            customer_ids = [
-                customer["id"]
-                for customer in customer_list
-            ]
+            # Check for payment history
+            edit_payment_response = (
+                supabase
+                .table("payments")
+                .select("id")
+                .eq("invoice_id", edit_invoice_id)
+                .execute()
+            )
 
-            current_customer_id = selected_edit_invoice["customer_id"]
+            has_payment_history = bool(
+                edit_payment_response.data
+            )
 
-            if current_customer_id in customer_ids:
-                customer_index = customer_ids.index(current_customer_id)
+            # -----------------------------
+            # LOCKED INVOICE
+            # -----------------------------
+
+            if has_payment_history:
+
+                st.warning(
+                    "This invoice has payment history. "
+                    "Financial details are locked."
+                )
+
+                st.write(
+                    f'**Invoice number:** '
+                    f'{selected_edit_invoice["invoice_number"]}'
+                )
+
+                st.write(
+                    f'**Customer:** '
+                    f'{customer_names.get(
+                        selected_edit_invoice["customer_id"],
+                        "Unknown"
+                    )}'
+                )
+
+                st.write(
+                    f'**Invoice date:** '
+                    f'{selected_edit_invoice["invoice_date"]}'
+                )
+
+                st.write(
+                    f'**Due date:** '
+                    f'{selected_edit_invoice["due_date"]}'
+                )
+
+                st.write(
+                    f'**Status:** '
+                    f'{selected_edit_invoice["status"]}'
+                )
+
+                with st.form("locked_invoice_notes_form"):
+
+                    edit_notes = st.text_area(
+                        "Notes",
+                        value=selected_edit_invoice.get("notes") or ""
+                    )
+
+                    save_notes = st.form_submit_button(
+                        "Save Notes"
+                    )
+
+                    if save_notes:
+
+                        (
+                            supabase
+                            .table("invoices")
+                            .update({
+                                "notes": edit_notes
+                            })
+                            .eq("id", edit_invoice_id)
+                            .execute()
+                        )
+
+                        st.success("Invoice notes updated.")
+                        st.rerun()
+
+            # -----------------------------
+            # EDITABLE INVOICE
+            # -----------------------------
+
             else:
-                customer_index = 0
 
-            with st.form("edit_invoice_form"):
+                customer_ids = [
+                    customer["id"]
+                    for customer in customer_list
+                ]
 
-                edit_invoice_number = st.text_input(
-                    "Invoice number",
-                    value=selected_edit_invoice.get("invoice_number") or ""
+                current_customer_id = (
+                    selected_edit_invoice["customer_id"]
                 )
 
-                edit_customer_id = st.selectbox(
-                    "Customer",
-                    customer_ids,
-                    index=customer_index,
-                    format_func=lambda customer_id: customer_names[customer_id]
-                )
-
-                edit_invoice_date = st.date_input(
-                    "Invoice date",
-                    value=date.fromisoformat(
-                        selected_edit_invoice["invoice_date"]
+                if current_customer_id in customer_ids:
+                    customer_index = customer_ids.index(
+                        current_customer_id
                     )
-                )
-
-                edit_due_date = st.date_input(
-                    "Due date",
-                    value=date.fromisoformat(
-                        selected_edit_invoice["due_date"]
-                    )
-                )
-
-                current_status = (
-                    selected_edit_invoice.get("status") or "Draft"
-                )
-
-                if current_status == "Paid":
-                    edit_status = st.selectbox(
-                        "Status",
-                        ["Paid"],
-                        disabled=True
-                    )
-
-                    st.info(
-                        "This invoice is Paid because its balance is zero. "
-                        "Payment records control this status."
-                    )
-
                 else:
+                    customer_index = 0
+
+                with st.form("edit_invoice_form"):
+
+                    edit_invoice_number = st.text_input(
+                        "Invoice number",
+                        value=selected_edit_invoice.get(
+                            "invoice_number"
+                        ) or ""
+                    )
+
+                    edit_customer_id = st.selectbox(
+                        "Customer",
+                        customer_ids,
+                        index=customer_index,
+                        format_func=lambda customer_id: (
+                            customer_names[customer_id]
+                        )
+                    )
+
+                    edit_invoice_date = st.date_input(
+                        "Invoice date",
+                        value=date.fromisoformat(
+                            selected_edit_invoice["invoice_date"]
+                        )
+                    )
+
+                    edit_due_date = st.date_input(
+                        "Due date",
+                        value=date.fromisoformat(
+                            selected_edit_invoice["due_date"]
+                        )
+                    )
+
+                    current_status = (
+                        selected_edit_invoice.get("status")
+                        or "Draft"
+                    )
+
                     status_options = [
                         "Draft",
                         "Unpaid",
@@ -1903,39 +1983,48 @@ if page == "Invoices":
                         index=status_index
                     )
 
-                edit_notes = st.text_area(
-                    "Notes",
-                    value=selected_edit_invoice.get("notes") or ""
-                )
+                    edit_notes = st.text_area(
+                        "Notes",
+                        value=selected_edit_invoice.get("notes") or ""
+                    )
 
-                update_invoice = st.form_submit_button(
-                    "Save Invoice Changes"
-                )
+                    update_invoice = st.form_submit_button(
+                        "Save Invoice Changes"
+                    )
 
-                if update_invoice:
+                    if update_invoice:
 
-                    if not edit_invoice_number.strip():
-                        st.error("Invoice number is required.")
+                        if not edit_invoice_number.strip():
+                            st.error(
+                                "Invoice number is required."
+                            )
 
-                    else:
-                        (
-                            supabase
-                            .table("invoices")
-                            .update({
-                                "invoice_number": edit_invoice_number,
-                                "customer_id": edit_customer_id,
-                                "invoice_date": str(edit_invoice_date),
-                                "due_date": str(edit_due_date),
-                                "status": edit_status,
-                                "notes": edit_notes
-                            })
-                            .eq("id", edit_invoice_id)
-                            .execute()
-                        )
+                        else:
 
-                        st.success("Invoice updated successfully.")
-                        st.rerun()
+                            (
+                                supabase
+                                .table("invoices")
+                                .update({
+                                    "invoice_number": edit_invoice_number,
+                                    "customer_id": edit_customer_id,
+                                    "invoice_date": str(
+                                        edit_invoice_date
+                                    ),
+                                    "due_date": str(
+                                        edit_due_date
+                                    ),
+                                    "status": edit_status,
+                                    "notes": edit_notes
+                                })
+                                .eq("id", edit_invoice_id)
+                                .execute()
+                            )
 
+                            st.success(
+                                "Invoice updated successfully."
+                            )
+
+                            st.rerun()
    
     # -----------------------------
     # DELETE INVOICE

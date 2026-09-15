@@ -1803,7 +1803,7 @@ if page == "Invoices":
                         "This invoice has no product lines."
                     )
 
-        # -----------------------------
+            # -----------------------------
     # EDIT INVOICE
     # -----------------------------
 
@@ -1841,16 +1841,31 @@ if page == "Invoices":
                 edit_payment_response.data
             )
 
+            current_status = (
+                selected_edit_invoice.get("status")
+                or "Draft"
+            )
+
             # -----------------------------
             # LOCKED INVOICE
             # -----------------------------
 
-            if has_payment_history:
+            if (
+                has_payment_history
+                or current_status == "Cancelled"
+            ):
 
-                st.warning(
-                    "This invoice has payment history. "
-                    "Financial details are locked."
-                )
+                if has_payment_history:
+                    st.warning(
+                        "This invoice has payment history. "
+                        "Financial details are locked."
+                    )
+
+                else:
+                    st.warning(
+                        "This invoice is Cancelled. "
+                        "Financial details are locked."
+                    )
 
                 st.write(
                     f'**Invoice number:** '
@@ -1880,11 +1895,15 @@ if page == "Invoices":
                     f'{selected_edit_invoice["status"]}'
                 )
 
-                with st.form("locked_invoice_notes_form"):
+                with st.form(
+                    f"locked_invoice_notes_{edit_invoice_id}"
+                ):
 
                     edit_notes = st.text_area(
                         "Notes",
-                        value=selected_edit_invoice.get("notes") or ""
+                        value=selected_edit_invoice.get(
+                            "notes"
+                        ) or ""
                     )
 
                     save_notes = st.form_submit_button(
@@ -1903,7 +1922,10 @@ if page == "Invoices":
                             .execute()
                         )
 
-                        st.success("Invoice notes updated.")
+                        st.success(
+                            "Invoice notes updated."
+                        )
+
                         st.rerun()
 
             # -----------------------------
@@ -1928,7 +1950,9 @@ if page == "Invoices":
                 else:
                     customer_index = 0
 
-                with st.form("edit_invoice_form"):
+                with st.form(
+                    f"edit_invoice_form_{edit_invoice_id}"
+                ):
 
                     edit_invoice_number = st.text_input(
                         "Invoice number",
@@ -1949,20 +1973,19 @@ if page == "Invoices":
                     edit_invoice_date = st.date_input(
                         "Invoice date",
                         value=date.fromisoformat(
-                            selected_edit_invoice["invoice_date"]
+                            selected_edit_invoice[
+                                "invoice_date"
+                            ]
                         )
                     )
 
                     edit_due_date = st.date_input(
                         "Due date",
                         value=date.fromisoformat(
-                            selected_edit_invoice["due_date"]
+                            selected_edit_invoice[
+                                "due_date"
+                            ]
                         )
-                    )
-
-                    current_status = (
-                        selected_edit_invoice.get("status")
-                        or "Draft"
                     )
 
                     status_options = [
@@ -1972,8 +1995,11 @@ if page == "Invoices":
                     ]
 
                     status_index = (
-                        status_options.index(current_status)
-                        if current_status in status_options
+                        status_options.index(
+                            current_status
+                        )
+                        if current_status
+                        in status_options
                         else 0
                     )
 
@@ -1985,44 +2011,159 @@ if page == "Invoices":
 
                     edit_notes = st.text_area(
                         "Notes",
-                        value=selected_edit_invoice.get("notes") or ""
+                        value=selected_edit_invoice.get(
+                            "notes"
+                        ) or ""
                     )
 
-                    update_invoice = st.form_submit_button(
-                        "Save Invoice Changes"
+                    update_invoice = (
+                        st.form_submit_button(
+                            "Save Invoice Changes"
+                        )
                     )
 
                     if update_invoice:
 
                         if not edit_invoice_number.strip():
+
                             st.error(
                                 "Invoice number is required."
                             )
 
                         else:
 
+                            # -----------------------------
+                            # CANCEL INVOICE
+                            # -----------------------------
+
+                            if edit_status == "Cancelled":
+
+                                cancel_items_response = (
+                                    supabase
+                                    .table("invoice_items")
+                                    .select("*")
+                                    .eq(
+                                        "invoice_id",
+                                        edit_invoice_id
+                                    )
+                                    .execute()
+                                )
+
+                                cancel_items = (
+                                    cancel_items_response.data
+                                )
+
+                                for item in cancel_items:
+
+                                    if item.get(
+                                        "stock_deducted"
+                                    ):
+
+                                        product_id = (
+                                            item["product_id"]
+                                        )
+
+                                        product_response = (
+                                            supabase
+                                            .table("products")
+                                            .select(
+                                                "stock_quantity"
+                                            )
+                                            .eq(
+                                                "id",
+                                                product_id
+                                            )
+                                            .execute()
+                                        )
+
+                                        product_data = (
+                                            product_response.data
+                                        )
+
+                                        if product_data:
+
+                                            current_stock = float(
+                                                product_data[0].get(
+                                                    "stock_quantity"
+                                                ) or 0
+                                            )
+
+                                            quantity_to_restore = float(
+                                                item.get(
+                                                    "quantity"
+                                                ) or 0
+                                            )
+
+                                            restored_stock = (
+                                                current_stock
+                                                + quantity_to_restore
+                                            )
+
+                                            (
+                                                supabase
+                                                .table("products")
+                                                .update({
+                                                    "stock_quantity":
+                                                        restored_stock
+                                                })
+                                                .eq(
+                                                    "id",
+                                                    product_id
+                                                )
+                                                .execute()
+                                            )
+
+                                            (
+                                                supabase
+                                                .table("invoice_items")
+                                                .update({
+                                                    "stock_deducted":
+                                                        False
+                                                })
+                                                .eq(
+                                                    "id",
+                                                    item["id"]
+                                                )
+                                                .execute()
+                                            )
+
+                            # Save invoice changes
                             (
                                 supabase
                                 .table("invoices")
                                 .update({
-                                    "invoice_number": edit_invoice_number,
-                                    "customer_id": edit_customer_id,
-                                    "invoice_date": str(
-                                        edit_invoice_date
-                                    ),
-                                    "due_date": str(
-                                        edit_due_date
-                                    ),
-                                    "status": edit_status,
-                                    "notes": edit_notes
+                                    "invoice_number":
+                                        edit_invoice_number,
+                                    "customer_id":
+                                        edit_customer_id,
+                                    "invoice_date":
+                                        str(edit_invoice_date),
+                                    "due_date":
+                                        str(edit_due_date),
+                                    "status":
+                                        edit_status,
+                                    "notes":
+                                        edit_notes
                                 })
-                                .eq("id", edit_invoice_id)
+                                .eq(
+                                    "id",
+                                    edit_invoice_id
+                                )
                                 .execute()
                             )
 
-                            st.success(
-                                "Invoice updated successfully."
-                            )
+                            if edit_status == "Cancelled":
+
+                                st.success(
+                                    "Invoice cancelled and "
+                                    "stock restored."
+                                )
+
+                            else:
+
+                                st.success(
+                                    "Invoice updated successfully."
+                                )
 
                             st.rerun()
    

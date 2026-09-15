@@ -1301,163 +1301,204 @@ if page == "Invoices":
 
     invoices = invoice_response.data
     
-    # -----------------------------
+        # -----------------------------
     # ADD PRODUCT LINE
     # -----------------------------
 
     if invoices:
         with st.expander("➕ Add Product Line"):
 
-            # Get active products
-            invoice_product_response = (
+            # Get invoices that already have payments
+            line_payment_response = (
                 supabase
-                .table("products")
-                .select(
-                    "id, product_name, selling_price, stock_quantity"
-                )
-                .eq("status", "Active")
-                .order("product_name")
+                .table("payments")
+                .select("invoice_id")
                 .execute()
             )
 
-            invoice_products = invoice_product_response.data
+            paid_invoice_ids = {
+                payment["invoice_id"]
+                for payment in line_payment_response.data
+            }
 
-            if not invoice_products:
-                st.warning("You need at least one active product.")
+            # Only invoices with no payments can be changed
+            editable_invoices = [
+                invoice
+                for invoice in invoices
+                if invoice["id"] not in paid_invoice_ids
+                and invoice.get("status") != "Cancelled"
+            ]
+
+            if not editable_invoices:
+                st.info(
+                    "There are no invoices available for adding product lines."
+                )
 
             else:
-                # Select invoice
-                selected_invoice_id = st.selectbox(
-                    "Invoice",
-                    [invoice["id"] for invoice in invoices],
-                    format_func=lambda invoice_id: next(
-                        f'{invoice["invoice_number"]} - '
-                        f'{customer_names.get(invoice["customer_id"], "Unknown")}'
-                        for invoice in invoices
-                        if invoice["id"] == invoice_id
+
+                # Get active products
+                invoice_product_response = (
+                    supabase
+                    .table("products")
+                    .select(
+                        "id, product_name, selling_price, stock_quantity"
                     )
+                    .eq("status", "Active")
+                    .order("product_name")
+                    .execute()
                 )
 
-                # Select product
-                selected_product_id = st.selectbox(
-                    "Product",
-                    [product["id"] for product in invoice_products],
-                    format_func=lambda product_id: next(
-                        product["product_name"]
+                invoice_products = invoice_product_response.data
+
+                if not invoice_products:
+                    st.warning(
+                        "You need at least one active product."
+                    )
+
+                else:
+
+                    selected_invoice_id = st.selectbox(
+                        "Invoice",
+                        [
+                            invoice["id"]
+                            for invoice in editable_invoices
+                        ],
+                        format_func=lambda invoice_id: next(
+                            f'{invoice["invoice_number"]} - '
+                            f'{customer_names.get(invoice["customer_id"], "Unknown")}'
+                            for invoice in editable_invoices
+                            if invoice["id"] == invoice_id
+                        )
+                    )
+
+                    selected_product_id = st.selectbox(
+                        "Product",
+                        [
+                            product["id"]
+                            for product in invoice_products
+                        ],
+                        format_func=lambda product_id: next(
+                            product["product_name"]
+                            for product in invoice_products
+                            if product["id"] == product_id
+                        )
+                    )
+
+                    selected_product = next(
+                        product
                         for product in invoice_products
-                        if product["id"] == product_id
+                        if product["id"] == selected_product_id
                     )
-                )
 
-                selected_product = next(
-                    product
-                    for product in invoice_products
-                    if product["id"] == selected_product_id
-                )
+                    quantity = st.number_input(
+                        "Quantity",
+                        min_value=0.01,
+                        value=1.0,
+                        step=1.0
+                    )
 
-                quantity = st.number_input(
-                    "Quantity",
-                    min_value=0.01,
-                    value=1.0,
-                    step=1.0
-                )
+                    unit_price = st.number_input(
+                        "Unit price",
+                        min_value=0.0,
+                        value=float(
+                            selected_product.get("selling_price") or 0
+                        ),
+                        step=0.01
+                    )
 
-                unit_price = st.number_input(
-                    "Unit price",
-                    min_value=0.0,
-                    value=float(
-                        selected_product.get("selling_price") or 0
-                    ),
-                    step=0.01
-                )
+                    available_stock = float(
+                        selected_product.get("stock_quantity") or 0
+                    )
 
-                available_stock = float(
-                    selected_product.get("stock_quantity") or 0
-                )
+                    st.write(
+                        f"**Available stock: {available_stock:g}**"
+                    )
 
-                st.write(
-                    f"**Available stock: {available_stock:g}**"
-                )
+                    line_total = round(
+                        quantity * unit_price,
+                        2
+                    )
 
-                line_total = round(
-                    quantity * unit_price,
-                    2
-                )
+                    st.write(
+                        f"**Line total: {line_total:.2f}**"
+                    )
 
-                st.write(
-                    f"**Line total: {line_total:.2f}**"
-                )
+                    if st.button("Add Product to Invoice"):
 
-                if st.button("Add Product to Invoice"):
+                        if quantity > available_stock:
+                            st.error(
+                                f"Not enough stock. "
+                                f"Available: {available_stock:g}"
+                            )
 
-                    if quantity > available_stock:
-                        st.error(
-                            f"Not enough stock. "
-                            f"Available: {available_stock:g}"
-                        )
+                        else:
 
-                    else:
-                        # Save invoice line
-                        supabase.table("invoice_items").insert({
-                            "invoice_id": selected_invoice_id,
-                            "product_id": selected_product_id,
-                            "description": selected_product["product_name"],
-                            "quantity": quantity,
-                            "unit_price": unit_price,
-                            "line_total": line_total,
-                            "stock_deducted": True
-                        }).execute()
+                            supabase.table("invoice_items").insert({
+                                "invoice_id": selected_invoice_id,
+                                "product_id": selected_product_id,
+                                "description": selected_product["product_name"],
+                                "quantity": quantity,
+                                "unit_price": unit_price,
+                                "line_total": line_total,
+                                "stock_deducted": True
+                            }).execute()
 
-                        # Reduce product stock
-                        new_stock = available_stock - quantity
+                            new_stock = (
+                                available_stock - quantity
+                            )
 
-                        (
-                            supabase
-                            .table("products")
-                            .update({
-                                "stock_quantity": new_stock
-                            })
-                            .eq("id", selected_product_id)
-                            .execute()
-                        )
+                            (
+                                supabase
+                                .table("products")
+                                .update({
+                                    "stock_quantity": new_stock
+                                })
+                                .eq("id", selected_product_id)
+                                .execute()
+                            )
 
-                        # Get all lines for this invoice
-                        items_response = (
-                            supabase
-                            .table("invoice_items")
-                            .select("line_total")
-                            .eq("invoice_id", selected_invoice_id)
-                            .execute()
-                        )
+                            items_response = (
+                                supabase
+                                .table("invoice_items")
+                                .select("line_total")
+                                .eq(
+                                    "invoice_id",
+                                    selected_invoice_id
+                                )
+                                .execute()
+                            )
 
-                        items = items_response.data
+                            items = items_response.data
 
-                        subtotal = sum(
-                            float(item.get("line_total") or 0)
-                            for item in items
-                        )
+                            subtotal = sum(
+                                float(
+                                    item.get("line_total") or 0
+                                )
+                                for item in items
+                            )
 
-                        tax_amount = 0
-                        total_amount = subtotal + tax_amount
+                            tax_amount = 0
+                            total_amount = (
+                                subtotal + tax_amount
+                            )
 
-                        # Update invoice totals
-                        (
-                            supabase
-                            .table("invoices")
-                            .update({
-                                "subtotal": subtotal,
-                                "tax_amount": tax_amount,
-                                "total_amount": total_amount
-                            })
-                            .eq("id", selected_invoice_id)
-                            .execute()
-                        )
+                            (
+                                supabase
+                                .table("invoices")
+                                .update({
+                                    "subtotal": subtotal,
+                                    "tax_amount": tax_amount,
+                                    "total_amount": total_amount
+                                })
+                                .eq("id", selected_invoice_id)
+                                .execute()
+                            )
 
-                        st.success(
-                            "Product added and stock updated."
-                        )
+                            st.success(
+                                "Product added and stock updated."
+                            )
 
-                        st.rerun()
+                            st.rerun()
     # -----------------------------
     # VIEW INVOICE DETAILS
     # -----------------------------

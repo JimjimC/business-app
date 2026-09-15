@@ -78,7 +78,7 @@ if page == "Home":
         .select("*")
         .execute()
     )
-        product_response = (
+    product_response = (
         supabase
         .table("products")
         .select("*")

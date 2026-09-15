@@ -1874,7 +1874,63 @@ if page == "Invoices":
                         st.error("Please confirm the deletion first.")
 
                     else:
-                        # Delete invoice product lines first
+
+                        # Get invoice lines before deleting them
+                        delete_items_response = (
+                            supabase
+                            .table("invoice_items")
+                            .select("*")
+                            .eq("invoice_id", delete_invoice_id)
+                            .execute()
+                        )
+
+                        delete_items = delete_items_response.data
+
+                        # Restore stock for lines that deducted stock
+                        for item in delete_items:
+
+                            if item.get("stock_deducted"):
+
+                                product_id = item["product_id"]
+
+                                product_response = (
+                                    supabase
+                                    .table("products")
+                                    .select("stock_quantity")
+                                    .eq("id", product_id)
+                                    .execute()
+                                )
+
+                                product_data = product_response.data
+
+                                if product_data:
+
+                                    current_stock = float(
+                                        product_data[0].get(
+                                            "stock_quantity"
+                                        ) or 0
+                                    )
+
+                                    quantity_to_restore = float(
+                                        item.get("quantity") or 0
+                                    )
+
+                                    restored_stock = (
+                                        current_stock
+                                        + quantity_to_restore
+                                    )
+
+                                    (
+                                        supabase
+                                        .table("products")
+                                        .update({
+                                            "stock_quantity": restored_stock
+                                        })
+                                        .eq("id", product_id)
+                                        .execute()
+                                    )
+
+                        # Delete invoice product lines
                         (
                             supabase
                             .table("invoice_items")
@@ -1892,7 +1948,10 @@ if page == "Invoices":
                             .execute()
                         )
 
-                        st.success("Invoice deleted successfully.")
+                        st.success(
+                            "Invoice deleted and stock restored."
+                        )
+
                         st.rerun()
     # -----------------------------
     # DISPLAY INVOICES

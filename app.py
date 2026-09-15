@@ -78,6 +78,12 @@ if page == "Home":
         .select("*")
         .execute()
     )
+        product_response = (
+        supabase
+        .table("products")
+        .select("*")
+        .execute()
+    )
 
     invoice_response = (
         supabase
@@ -95,6 +101,7 @@ if page == "Home":
 
     customers = customer_response.data
     suppliers = supplier_response.data
+    products = product_response.data
     invoices = invoice_response.data
     payments = payment_response.data
 
@@ -111,7 +118,35 @@ if page == "Home":
         supplier for supplier in suppliers
         if supplier.get("status") == "Active"
     ]
+    # -----------------------------
+    # LOW STOCK PRODUCTS
+    # -----------------------------
 
+    low_stock_products = []
+
+    for product in products:
+
+        if product.get("status") != "Active":
+            continue
+
+        stock = float(
+            product.get("stock_quantity") or 0
+        )
+
+        reorder_level = float(
+            product.get("reorder_level") or 0
+        )
+
+        if (
+            reorder_level > 0
+            and stock <= reorder_level
+        ):
+
+            low_stock_products.append({
+                "Product": product["product_name"],
+                "Stock": stock,
+                "Reorder Level": reorder_level
+            })
     # -----------------------------
     # PAYMENT TOTALS
     # -----------------------------
@@ -197,6 +232,24 @@ if page == "Home":
         invoice for invoice in invoices
         if invoice.get("status") == "Paid"
     ]
+    st.divider()
+
+    st.metric(
+        "Low Stock Products",
+        len(low_stock_products)
+    )
+
+    st.subheader("Low Stock Details")
+
+    if low_stock_products:
+
+        st.dataframe(
+            low_stock_products,
+            use_container_width=True
+        )
+
+    else:
+        st.success("No low-stock products.")
     # -----------------------------
     # DASHBOARD
     # -----------------------------

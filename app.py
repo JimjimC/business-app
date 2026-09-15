@@ -1055,7 +1055,7 @@ elif page == "Products":
                     step=1.0,
                     key=f"edit_product_stock_{selected_id}"
                 )
-              edit_reorder_level = st.number_input(
+                edit_reorder_level = st.number_input(
                    "Reorder level",
                    min_value=0.0,
                    value=float(selected_product.get("reorder_level") or 0),

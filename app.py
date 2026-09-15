@@ -896,6 +896,11 @@ elif page == "Products":
                     min_value=0.0,
                     step=1.0
                 )
+                reorder_level = st.number_input(
+                    "Reorder level",
+                    min_value=0.0,
+                    step=1.0
+                )
 
                 notes = st.text_area("Notes")
 
@@ -919,6 +924,7 @@ elif page == "Products":
                             "cost_price": cost_price,
                             "selling_price": selling_price,
                             "stock_quantity": stock_quantity,
+                            "reorder_level": reorder_level,
                             "notes": notes,
                             "status": status
                         }).execute()
@@ -1049,7 +1055,13 @@ elif page == "Products":
                     step=1.0,
                     key=f"edit_product_stock_{selected_id}"
                 )
-
+              edit_reorder_level = st.number_input(
+                   "Reorder level",
+                   min_value=0.0,
+                   value=float(selected_product.get("reorder_level") or 0),
+                   step=1.0,
+                   key=f"edit_product_reorder_{selected_id}"
+                )
                 edit_notes = st.text_area(
                     "Notes",
                     value=selected_product.get("notes") or "",
@@ -1085,6 +1097,7 @@ elif page == "Products":
                                 "cost_price": edit_cost_price,
                                 "selling_price": edit_selling_price,
                                 "stock_quantity": edit_stock_quantity,
+                                "reorder_level": edit_reorder_level,
                                 "notes": edit_notes,
                                 "status": edit_status
                             })

@@ -1595,122 +1595,213 @@ if page == "Invoices":
             else:
                 st.info("This invoice has no product lines yet.")
 
-    # -----------------------------
+        # -----------------------------
     # REMOVE PRODUCT LINE
     # -----------------------------
 
     if invoices:
         with st.expander("🗑️ Remove Product Line"):
 
-            remove_invoice_id = st.selectbox(
-                "Select invoice",
-                [invoice["id"] for invoice in invoices],
-                format_func=lambda invoice_id: next(
-                    f'{invoice["invoice_number"]} - '
-                    f'{customer_names.get(invoice["customer_id"], "Unknown")}'
-                    for invoice in invoices
-                    if invoice["id"] == invoice_id
-                ),
-                key="remove_line_invoice"
-            )
-
-            remove_items_response = (
+            # Get invoices that already have payments
+            remove_payment_response = (
                 supabase
-                .table("invoice_items")
-                .select("*")
-                .eq("invoice_id", remove_invoice_id)
-                .order("id")
+                .table("payments")
+                .select("invoice_id")
                 .execute()
             )
 
-            remove_items = remove_items_response.data
+            locked_invoice_ids = {
+                payment["invoice_id"]
+                for payment in remove_payment_response.data
+            }
 
-            if remove_items:
+            # Only invoices with no payments can be changed
+            removable_invoices = [
+                invoice
+                for invoice in invoices
+                if invoice["id"] not in locked_invoice_ids
+                and invoice.get("status") != "Cancelled"
+            ]
 
-                remove_item_id = st.selectbox(
-                    "Select product line",
-                    [item["id"] for item in remove_items],
-                    format_func=lambda item_id: next(
-                        f'{item["description"]} - '
-                        f'Qty {item["quantity"]} - '
-                        f'{float(item["line_total"]):.2f}'
-                        for item in remove_items
-                        if item["id"] == item_id
-                    ),
-                    key="remove_invoice_item"
+            if not removable_invoices:
+                st.info(
+                    "There are no invoices available "
+                    "for removing product lines."
                 )
-
-                selected_remove_item = next(
-                    item
-                    for item in remove_items
-                    if item["id"] == remove_item_id
-                )
-
-                st.warning(
-                    f'You are about to remove: '
-                    f'{selected_remove_item["description"]}'
-                )
-
-                confirm_remove = st.checkbox(
-                    "I confirm that I want to remove this product line",
-                    key=f"confirm_remove_line_{remove_item_id}"
-                )
-
-                if st.button(
-                    "Remove Product Line",
-                    key=f"remove_line_button_{remove_item_id}"
-                ):
-
-                    if not confirm_remove:
-                        st.error("Please confirm the removal first.")
-
-                    else:
-                        # Delete product line
-                        (
-                            supabase
-                            .table("invoice_items")
-                            .delete()
-                            .eq("id", remove_item_id)
-                            .execute()
-                        )
-
-                        # Get remaining invoice lines
-                        remaining_response = (
-                            supabase
-                            .table("invoice_items")
-                            .select("line_total")
-                            .eq("invoice_id", remove_invoice_id)
-                            .execute()
-                        )
-
-                        remaining_items = remaining_response.data
-
-                        subtotal = sum(
-                            float(item.get("line_total") or 0)
-                            for item in remaining_items
-                        )
-
-                        tax_amount = 0
-                        total_amount = subtotal + tax_amount
-
-                        # Update invoice totals
-                        (
-                            supabase
-                            .table("invoices")
-                            .update({
-                                "subtotal": subtotal,
-                                "tax_amount": tax_amount,
-                                "total_amount": total_amount
-                            })
-                            .eq("id", remove_invoice_id)
-                            .execute()
-                        )
-
-                        st.success("Product line removed.")
-                        st.rerun()
 
             else:
-                st.info("This invoice has no product lines.")
+
+                remove_invoice_id = st.selectbox(
+                    "Select invoice",
+                    [
+                        invoice["id"]
+                        for invoice in removable_invoices
+                    ],
+                    format_func=lambda invoice_id: next(
+                        f'{invoice["invoice_number"]} - '
+                        f'{customer_names.get(invoice["customer_id"], "Unknown")}'
+                        for invoice in removable_invoices
+                        if invoice["id"] == invoice_id
+                    ),
+                    key="remove_line_invoice"
+                )
+
+                remove_items_response = (
+                    supabase
+                    .table("invoice_items")
+                    .select("*")
+                    .eq("invoice_id", remove_invoice_id)
+                    .order("id")
+                    .execute()
+                )
+
+                remove_items = remove_items_response.data
+
+                if remove_items:
+
+                    remove_item_id = st.selectbox(
+                        "Select product line",
+                        [item["id"] for item in remove_items],
+                        format_func=lambda item_id: next(
+                            f'{item["description"]} - '
+                            f'Qty {item["quantity"]} - '
+                            f'{float(item["line_total"]):.2f}'
+                            for item in remove_items
+                            if item["id"] == item_id
+                        ),
+                        key="remove_invoice_item"
+                    )
+
+                    selected_remove_item = next(
+                        item
+                        for item in remove_items
+                        if item["id"] == remove_item_id
+                    )
+
+                    st.warning(
+                        f'You are about to remove: '
+                        f'{selected_remove_item["description"]}'
+                    )
+
+                    confirm_remove = st.checkbox(
+                        "I confirm that I want to remove this product line",
+                        key=f"confirm_remove_line_{remove_item_id}"
+                    )
+
+                    if st.button(
+                        "Remove Product Line",
+                        key=f"remove_line_button_{remove_item_id}"
+                    ):
+
+                        if not confirm_remove:
+                            st.error(
+                                "Please confirm the removal first."
+                            )
+
+                        else:
+
+                            # Restore stock only if this line
+                            # previously deducted stock
+                            if selected_remove_item.get("stock_deducted"):
+
+                                product_id = selected_remove_item["product_id"]
+
+                                product_response = (
+                                    supabase
+                                    .table("products")
+                                    .select("stock_quantity")
+                                    .eq("id", product_id)
+                                    .execute()
+                                )
+
+                                product_data = product_response.data
+
+                                if product_data:
+
+                                    current_stock = float(
+                                        product_data[0].get(
+                                            "stock_quantity"
+                                        ) or 0
+                                    )
+
+                                    quantity_to_restore = float(
+                                        selected_remove_item.get(
+                                            "quantity"
+                                        ) or 0
+                                    )
+
+                                    restored_stock = (
+                                        current_stock
+                                        + quantity_to_restore
+                                    )
+
+                                    (
+                                        supabase
+                                        .table("products")
+                                        .update({
+                                            "stock_quantity": restored_stock
+                                        })
+                                        .eq("id", product_id)
+                                        .execute()
+                                    )
+
+                            # Delete product line
+                            (
+                                supabase
+                                .table("invoice_items")
+                                .delete()
+                                .eq("id", remove_item_id)
+                                .execute()
+                            )
+
+                            # Recalculate invoice totals
+                            remaining_response = (
+                                supabase
+                                .table("invoice_items")
+                                .select("line_total")
+                                .eq(
+                                    "invoice_id",
+                                    remove_invoice_id
+                                )
+                                .execute()
+                            )
+
+                            remaining_items = remaining_response.data
+
+                            subtotal = sum(
+                                float(
+                                    item.get("line_total") or 0
+                                )
+                                for item in remaining_items
+                            )
+
+                            tax_amount = 0
+                            total_amount = (
+                                subtotal + tax_amount
+                            )
+
+                            (
+                                supabase
+                                .table("invoices")
+                                .update({
+                                    "subtotal": subtotal,
+                                    "tax_amount": tax_amount,
+                                    "total_amount": total_amount
+                                })
+                                .eq("id", remove_invoice_id)
+                                .execute()
+                            )
+
+                            st.success(
+                                "Product line removed and stock restored."
+                            )
+
+                            st.rerun()
+
+                else:
+                    st.info(
+                        "This invoice has no product lines."
+                    )
 
     # -----------------------------
     # EDIT INVOICE

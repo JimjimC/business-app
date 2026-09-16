@@ -262,13 +262,43 @@ if page == "Home":
 
     if low_stock_products:
 
+    st.dataframe(
+        low_stock_products,
+        use_container_width=True
+    )
+
+    # -----------------------------
+    # PURCHASE LIST BY SUPPLIER
+    # -----------------------------
+
+    st.subheader("Purchase Suggestions by Supplier")
+
+    purchase_lists = {}
+
+    for product in low_stock_products:
+
+        supplier = product["Supplier"]
+
+        if supplier not in purchase_lists:
+            purchase_lists[supplier] = []
+
+        purchase_lists[supplier].append({
+            "Product": product["Product"],
+            "Current Stock": product["Stock"],
+            "Suggested Order": product["Suggested Order"]
+        })
+
+    for supplier, items in purchase_lists.items():
+
+        st.write(f"### {supplier}")
+
         st.dataframe(
-            low_stock_products,
+            items,
             use_container_width=True
         )
 
-    else:
-        st.success("No low-stock products.")
+else:
+    st.success("No low-stock products.")
     # -----------------------------
     # DASHBOARD
     # -----------------------------

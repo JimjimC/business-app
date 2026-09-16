@@ -954,10 +954,10 @@ elif page == "Products":
                     min_value=0.0,
                     step=1.0
                 )
-               target_stock = st.number_input(
-                 "Target stock",
-                 min_value=0.0,
-                 step=1.0
+                target_stock = st.number_input(
+                  "Target stock",
+                  min_value=0.0,
+                  step=1.0
                 )
                 notes = st.text_area("Notes")
 

@@ -142,11 +142,22 @@ if page == "Home":
             and stock <= reorder_level
         ):
 
-            low_stock_products.append({
-                "Product": product["product_name"],
-                "Stock": stock,
-                "Reorder Level": reorder_level
-            })
+            target_stock = float(
+                 product.get("target_stock") or 0
+             )
+
+             suggested_order = max(
+                 target_stock - stock,
+                 0
+             )
+
+             low_stock_products.append({
+                 "Product": product["product_name"],
+                 "Stock": stock,
+                 "Reorder Level": reorder_level,
+                 "Target Stock": target_stock,
+                 "Suggested Order": suggested_order
+             })
     # -----------------------------
     # PAYMENT TOTALS
     # -----------------------------

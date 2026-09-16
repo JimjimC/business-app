@@ -102,6 +102,10 @@ if page == "Home":
     customers = customer_response.data
     suppliers = supplier_response.data
     products = product_response.data
+    supplier_names = {
+       supplier["id"]: supplier["company_name"]
+        for supplier in suppliers
+    }
     invoices = invoice_response.data
     payments = payment_response.data
 
@@ -153,6 +157,10 @@ if page == "Home":
 
             low_stock_products.append({
                 "Product": product["product_name"],
+                "Supplier": supplier_names.get(
+                    product.get("supplier_id"),
+                    "Unknown"
+                ),
                 "Stock": stock,
                 "Reorder Level": reorder_level,
                 "Target Stock": target_stock,

@@ -251,55 +251,7 @@ if page == "Home":
         invoice for invoice in invoices
         if invoice.get("status") == "Paid"
     ]
-    st.divider()
-
-    st.metric(
-        "Low Stock Products",
-        len(low_stock_products)
-    )
-
-    st.subheader("Low Stock Details")
-
-    if low_stock_products:
-
-    st.dataframe(
-        low_stock_products,
-        use_container_width=True
-    )
-
-    # -----------------------------
-    # PURCHASE LIST BY SUPPLIER
-    # -----------------------------
-
-    st.subheader("Purchase Suggestions by Supplier")
-
-    purchase_lists = {}
-
-    for product in low_stock_products:
-
-        supplier = product["Supplier"]
-
-        if supplier not in purchase_lists:
-            purchase_lists[supplier] = []
-
-        purchase_lists[supplier].append({
-            "Product": product["Product"],
-            "Current Stock": product["Stock"],
-            "Suggested Order": product["Suggested Order"]
-        })
-
-    for supplier, items in purchase_lists.items():
-
-        st.write(f"### {supplier}")
-
-        st.dataframe(
-            items,
-            use_container_width=True
-        )
-
-else:
-    st.success("No low-stock products.")
-    # -----------------------------
+        # -----------------------------
     # DASHBOARD
     # -----------------------------
 
@@ -389,6 +341,59 @@ else:
         )
     else:
         st.success("No overdue invoices.")
+
+    # -----------------------------
+    # LOW STOCK
+    # -----------------------------
+
+    st.divider()
+
+    st.metric(
+        "Low Stock Products",
+        len(low_stock_products)
+    )
+
+    st.subheader("Low Stock Details")
+
+    if low_stock_products:
+
+        st.dataframe(
+            low_stock_products,
+            use_container_width=True
+        )
+
+        # -----------------------------
+        # PURCHASE LIST BY SUPPLIER
+        # -----------------------------
+
+        st.subheader("Purchase Suggestions by Supplier")
+
+        purchase_lists = {}
+
+        for product in low_stock_products:
+
+            supplier = product["Supplier"]
+
+            if supplier not in purchase_lists:
+                purchase_lists[supplier] = []
+
+            purchase_lists[supplier].append({
+                "Product": product["Product"],
+                "Current Stock": product["Stock"],
+                "Suggested Order": product["Suggested Order"]
+            })
+
+        for supplier, items in purchase_lists.items():
+
+            st.write(f"### {supplier}")
+
+            st.dataframe(
+                items,
+                use_container_width=True
+            )
+
+    else:
+        st.success("No low-stock products.")
 
 
 elif page == "Customers":

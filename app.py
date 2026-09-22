@@ -2848,6 +2848,187 @@ if page == "Purchase Orders":
     )
 
     purchase_orders = po_response.data
+    # -----------------------------
+    # ADD PRODUCT TO PURCHASE ORDER
+    # -----------------------------
+
+    if purchase_orders:
+
+        with st.expander("➕ Add Product to Purchase Order"):
+
+            draft_purchase_orders = [
+                po for po in purchase_orders
+                if po.get("status") == "Draft"
+            ]
+
+            if not draft_purchase_orders:
+
+                st.info(
+                    "There are no Draft purchase orders "
+                    "available for editing."
+                )
+
+            else:
+
+                selected_po_id = st.selectbox(
+                    "Purchase Order",
+                    [po["id"] for po in draft_purchase_orders],
+                    format_func=lambda po_id: next(
+                        po["po_number"]
+                        for po in draft_purchase_orders
+                        if po["id"] == po_id
+                    ),
+                    key="po_add_line_select"
+                )
+
+                selected_po = next(
+                    po
+                    for po in draft_purchase_orders
+                    if po["id"] == selected_po_id
+                )
+
+                selected_supplier_id = (
+                    selected_po["supplier_id"]
+                )
+
+                po_product_response = (
+                    supabase
+                    .table("products")
+                    .select(
+                        "id, product_name, cost_price, supplier_id"
+                    )
+                    .eq(
+                        "supplier_id",
+                        selected_supplier_id
+                    )
+                    .eq(
+                        "status",
+                        "Active"
+                    )
+                    .order("product_name")
+                    .execute()
+                )
+
+                po_products = po_product_response.data
+
+                if not po_products:
+
+                    st.warning(
+                        "This supplier has no active products."
+                    )
+
+                else:
+
+                    selected_po_product_id = st.selectbox(
+                        "Product",
+                        [
+                            product["id"]
+                            for product in po_products
+                        ],
+                        format_func=lambda product_id: next(
+                            product["product_name"]
+                            for product in po_products
+                            if product["id"] == product_id
+                        ),
+                        key="po_product_select"
+                    )
+
+                    selected_po_product = next(
+                        product
+                        for product in po_products
+                        if product["id"]
+                        == selected_po_product_id
+                    )
+
+                    quantity_ordered = st.number_input(
+                        "Quantity ordered",
+                        min_value=0.01,
+                        value=1.0,
+                        step=1.0
+                    )
+
+                    unit_cost = st.number_input(
+                        "Unit cost",
+                        min_value=0.0,
+                        value=float(
+                            selected_po_product.get(
+                                "cost_price"
+                            ) or 0
+                        ),
+                        step=0.01
+                    )
+
+                    line_total = round(
+                        quantity_ordered * unit_cost,
+                        2
+                    )
+
+                    st.write(
+                        f"**Line total: {line_total:.2f}**"
+                    )
+
+                    if st.button(
+                        "Add Product to Purchase Order"
+                    ):
+
+                        (
+                            supabase
+                            .table("purchase_order_items")
+                            .insert({
+                                "purchase_order_id":
+                                    selected_po_id,
+                                "product_id":
+                                    selected_po_product_id,
+                                "description":
+                                    selected_po_product[
+                                        "product_name"
+                                    ],
+                                "quantity_ordered":
+                                    quantity_ordered,
+                                "quantity_received": 0,
+                                "unit_cost": unit_cost,
+                                "line_total": line_total
+                            })
+                            .execute()
+                        )
+
+                        po_items_response = (
+                            supabase
+                            .table("purchase_order_items")
+                            .select("line_total")
+                            .eq(
+                                "purchase_order_id",
+                                selected_po_id
+                            )
+                            .execute()
+                        )
+
+                        po_total = sum(
+                            float(
+                                item.get("line_total") or 0
+                            )
+                            for item
+                            in po_items_response.data
+                        )
+
+                        (
+                            supabase
+                            .table("purchase_orders")
+                            .update({
+                                "total_amount": po_total
+                            })
+                            .eq(
+                                "id",
+                                selected_po_id
+                            )
+                            .execute()
+                        )
+
+                        st.success(
+                            "Product added to purchase order."
+                        )
+
+                        st.rerun()
 
     # -----------------------------
     # DISPLAY PURCHASE ORDERS

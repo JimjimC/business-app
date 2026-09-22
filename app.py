@@ -107,7 +107,7 @@ if page == "Home":
         .select("*")
         .execute()
     )
-        home_po_response = (
+    home_po_response = (
         supabase
         .table("purchase_orders")
         .select("id, status")

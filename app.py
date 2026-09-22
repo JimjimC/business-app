@@ -62,8 +62,8 @@ page = st.sidebar.radio(
 )
 
 if st.sidebar.button("Log out"):
-st.session_state.authenticated = False
-st.rerun()
+   st.session_state.authenticated = False
+   st.rerun()
 
 
 if page == "Home":

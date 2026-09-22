@@ -2834,3 +2834,49 @@ if page == "Purchase Orders":
                         )
 
                         st.rerun()
+
+    # -----------------------------
+    # GET PURCHASE ORDERS
+    # -----------------------------
+
+    po_response = (
+        supabase
+        .table("purchase_orders")
+        .select("*")
+        .order("id")
+        .execute()
+    )
+
+    purchase_orders = po_response.data
+
+    # -----------------------------
+    # DISPLAY PURCHASE ORDERS
+    # -----------------------------
+
+    st.subheader("Existing Purchase Orders")
+
+    display_purchase_orders = []
+
+    for po in purchase_orders:
+
+        display_purchase_orders.append({
+            "PO Number": po["po_number"],
+            "Supplier": po_supplier_names.get(
+                po.get("supplier_id"),
+                "Unknown"
+            ),
+            "Order Date": po["order_date"],
+            "Expected Date": po["expected_date"],
+            "Status": po["status"],
+            "Total": po["total_amount"]
+        })
+
+    if display_purchase_orders:
+
+        st.dataframe(
+            display_purchase_orders,
+            use_container_width=True
+        )
+
+    else:
+        st.info("No purchase orders found.")

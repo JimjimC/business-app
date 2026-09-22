@@ -2871,32 +2871,73 @@ if page == "Purchase Orders":
                     "Create Purchase Order"
                 )
 
-                if submitted:
+                 if submitted:
 
                     if not po_number.strip():
-                        st.error("PO number is required.")
+
+                        st.error(
+                            "PO number is required."
+                        )
 
                     else:
-                        (
+
+                        normalized_po_number = (
+                            po_number.strip().lower()
+                        )
+
+                        existing_po_response = (
                             supabase
                             .table("purchase_orders")
-                            .insert({
-                                "po_number": po_number,
-                                "supplier_id": supplier_id,
-                                "order_date": str(order_date),
-                                "expected_date": str(expected_date),
-                                "status": "Draft",
-                                "total_amount": 0,
-                                "notes": notes
-                            })
+                            .select("id, po_number")
                             .execute()
                         )
 
-                        st.success(
-                            "Purchase order created successfully."
+                        duplicate_po = any(
+                            (
+                                po.get("po_number") or ""
+                            ).strip().lower()
+                            == normalized_po_number
+                            for po
+                            in existing_po_response.data
                         )
 
-                        st.rerun()
+                        if duplicate_po:
+
+                            st.error(
+                                "PO number already exists. "
+                                "Please use a different number."
+                            )
+
+                        else:
+
+                            (
+                                supabase
+                                .table("purchase_orders")
+                                .insert({
+                                    "po_number":
+                                        po_number.strip(),
+                                    "supplier_id":
+                                        supplier_id,
+                                    "order_date":
+                                        str(order_date),
+                                    "expected_date":
+                                        str(expected_date),
+                                    "status":
+                                        "Draft",
+                                    "total_amount":
+                                        0,
+                                    "notes":
+                                        notes
+                                })
+                                .execute()
+                            )
+
+                            st.success(
+                                "Purchase order "
+                                "created successfully."
+                            )
+
+                            st.rerun()
 
     # -----------------------------
     # GET PURCHASE ORDERS

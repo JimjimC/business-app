@@ -50,16 +50,16 @@ st.title("Business Database App")
 
 page = st.sidebar.radio(
     "Menu",
-    ["Home", "Customers", "Suppliers", "Products", "Invoices", "Payments"]
+    [
+        "Home",
+        "Customers",
+        "Suppliers",
+        "Products",
+        "Invoices",
+        "Payments",
+        "Purchase Orders"
+    ]
 )
-
-if st.sidebar.button("Log out"):
-    st.session_state.authenticated = False
-    st.rerun()
-
-
-if page == "Home":
-    st.header("Business Dashboard")
 
     # -----------------------------
     # GET DATA
@@ -2727,3 +2727,99 @@ if page == "Payments":
 
     else:
         st.info("No payments recorded yet.")
+
+if page == "Purchase Orders":
+    st.header("Purchase Orders")
+
+    # -----------------------------
+    # GET ACTIVE SUPPLIERS
+    # -----------------------------
+
+    po_supplier_response = (
+        supabase
+        .table("suppliers")
+        .select("id, company_name, status")
+        .eq("status", "Active")
+        .order("company_name")
+        .execute()
+    )
+
+    po_suppliers = po_supplier_response.data
+
+    po_supplier_names = {
+        supplier["id"]: supplier["company_name"]
+        for supplier in po_suppliers
+    }
+
+    # -----------------------------
+    # CREATE PURCHASE ORDER
+    # -----------------------------
+
+    with st.expander("➕ Create Purchase Order"):
+
+        if not po_suppliers:
+            st.warning(
+                "You need at least one active supplier "
+                "before creating a purchase order."
+            )
+
+        else:
+            with st.form("create_purchase_order_form"):
+
+                po_number = st.text_input(
+                    "PO number",
+                    placeholder="Example: PO-1001"
+                )
+
+                supplier_id = st.selectbox(
+                    "Supplier",
+                    [supplier["id"] for supplier in po_suppliers],
+                    format_func=lambda supplier_id: (
+                        po_supplier_names[supplier_id]
+                    )
+                )
+
+                order_date = st.date_input(
+                    "Order date",
+                    value=date.today()
+                )
+
+                expected_date = st.date_input(
+                    "Expected date",
+                    value=date.today()
+                )
+
+                notes = st.text_area(
+                    "Notes"
+                )
+
+                submitted = st.form_submit_button(
+                    "Create Purchase Order"
+                )
+
+                if submitted:
+
+                    if not po_number.strip():
+                        st.error("PO number is required.")
+
+                    else:
+                        (
+                            supabase
+                            .table("purchase_orders")
+                            .insert({
+                                "po_number": po_number,
+                                "supplier_id": supplier_id,
+                                "order_date": str(order_date),
+                                "expected_date": str(expected_date),
+                                "status": "Draft",
+                                "total_amount": 0,
+                                "notes": notes
+                            })
+                            .execute()
+                        )
+
+                        st.success(
+                            "Purchase order created successfully."
+                        )
+
+                        st.rerun()

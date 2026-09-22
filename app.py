@@ -2953,7 +2953,7 @@ if page == "Purchase Orders":
 
     purchase_orders = po_response.data
 
-        # -----------------------------
+    # -----------------------------
     # EDIT DRAFT PURCHASE ORDER
     # -----------------------------
 
@@ -3039,31 +3039,61 @@ if page == "Purchase Orders":
 
                     else:
 
-                        (
+                        normalized_edit_number = (
+                            edit_po_number.strip().lower()
+                        )
+
+                        existing_po_response = (
                             supabase
                             .table("purchase_orders")
-                            .update({
-                                "po_number":
-                                    edit_po_number,
-                                "order_date":
-                                    str(edit_order_date),
-                                "expected_date":
-                                    str(edit_expected_date),
-                                "notes":
-                                    edit_po_notes
-                            })
-                            .eq(
-                                "id",
-                                edit_po_id
-                            )
+                            .select("id, po_number")
                             .execute()
                         )
 
-                        st.success(
-                            "Purchase order updated."
+                        duplicate_po = any(
+                            po["id"] != edit_po_id
+                            and (
+                                po.get("po_number") or ""
+                            ).strip().lower()
+                            == normalized_edit_number
+                            for po
+                            in existing_po_response.data
                         )
 
-                        st.rerun()
+                        if duplicate_po:
+
+                            st.error(
+                                "PO number already exists. "
+                                "Please use a different number."
+                            )
+
+                        else:
+
+                            (
+                                supabase
+                                .table("purchase_orders")
+                                .update({
+                                    "po_number":
+                                        edit_po_number.strip(),
+                                    "order_date":
+                                        str(edit_order_date),
+                                    "expected_date":
+                                        str(edit_expected_date),
+                                    "notes":
+                                        edit_po_notes
+                                })
+                                .eq(
+                                    "id",
+                                    edit_po_id
+                                )
+                                .execute()
+                            )
+
+                            st.success(
+                                "Purchase order updated."
+                            )
+
+                            st.rerun()
     # -----------------------------
     # ADD PRODUCT TO PURCHASE ORDER
     # -----------------------------

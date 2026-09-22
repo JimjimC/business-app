@@ -3029,6 +3029,98 @@ if page == "Purchase Orders":
                         )
 
                         st.rerun()
+    # -----------------------------
+    # VIEW PURCHASE ORDER DETAILS
+    # -----------------------------
+
+    if purchase_orders:
+
+        with st.expander("📄 View Purchase Order Details"):
+
+            view_po_id = st.selectbox(
+                "Select Purchase Order",
+                [po["id"] for po in purchase_orders],
+                format_func=lambda po_id: next(
+                    po["po_number"]
+                    for po in purchase_orders
+                    if po["id"] == po_id
+                ),
+                key="view_po_select"
+            )
+
+            selected_view_po = next(
+                po
+                for po in purchase_orders
+                if po["id"] == view_po_id
+            )
+
+            st.write(
+                f'**Supplier:** '
+                f'{po_supplier_names.get(
+                    selected_view_po["supplier_id"],
+                    "Unknown"
+                )}'
+            )
+
+            st.write(
+                f'**Status:** '
+                f'{selected_view_po["status"]}'
+            )
+
+            st.write(
+                f'**Order date:** '
+                f'{selected_view_po["order_date"]}'
+            )
+
+            st.write(
+                f'**Expected date:** '
+                f'{selected_view_po["expected_date"]}'
+            )
+
+            view_items_response = (
+                supabase
+                .table("purchase_order_items")
+                .select("*")
+                .eq(
+                    "purchase_order_id",
+                    view_po_id
+                )
+                .order("id")
+                .execute()
+            )
+
+            view_po_items = view_items_response.data
+
+            if view_po_items:
+
+                display_po_items = []
+
+                for item in view_po_items:
+
+                    display_po_items.append({
+                        "Product": item["description"],
+                        "Ordered": item["quantity_ordered"],
+                        "Received": item["quantity_received"],
+                        "Unit Cost": item["unit_cost"],
+                        "Line Total": item["line_total"]
+                    })
+
+                st.dataframe(
+                    display_po_items,
+                    use_container_width=True
+                )
+
+                st.metric(
+                    "Purchase Order Total",
+                    f'{float(
+                        selected_view_po["total_amount"] or 0
+                    ):.2f}'
+                )
+
+            else:
+                st.info(
+                    "This purchase order has no products yet."
+                )
 
     # -----------------------------
     # DISPLAY PURCHASE ORDERS

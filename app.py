@@ -3030,7 +3030,7 @@ if page == "Purchase Orders":
 
                         st.rerun()
 
-        # -----------------------------
+    # -----------------------------
     # REMOVE PRODUCT FROM DRAFT PO
     # -----------------------------
 
@@ -3173,6 +3173,92 @@ if page == "Purchase Orders":
                         )
 
                         st.rerun()
+
+        # -----------------------------
+    # DELETE DRAFT PURCHASE ORDER
+    # -----------------------------
+
+    deletable_purchase_orders = [
+        po for po in purchase_orders
+        if po.get("status") == "Draft"
+    ]
+
+    if deletable_purchase_orders:
+
+        with st.expander("🗑️ Delete Draft Purchase Order"):
+
+            delete_po_id = st.selectbox(
+                "Draft Purchase Order",
+                [
+                    po["id"]
+                    for po in deletable_purchase_orders
+                ],
+                format_func=lambda po_id: next(
+                    po["po_number"]
+                    for po in deletable_purchase_orders
+                    if po["id"] == po_id
+                ),
+                key="delete_po_select"
+            )
+
+            selected_delete_po = next(
+                po
+                for po in deletable_purchase_orders
+                if po["id"] == delete_po_id
+            )
+
+            st.warning(
+                f'You are about to permanently delete '
+                f'{selected_delete_po["po_number"]}.'
+            )
+
+            confirm_delete_po = st.checkbox(
+                "I confirm that I want to delete this purchase order",
+                key=f"confirm_delete_po_{delete_po_id}"
+            )
+
+            if st.button(
+                "Delete Purchase Order",
+                key=f"delete_po_button_{delete_po_id}"
+            ):
+
+                if not confirm_delete_po:
+
+                    st.error(
+                        "Please confirm the deletion first."
+                    )
+
+                else:
+
+                    # Delete any Draft PO product lines first
+                    (
+                        supabase
+                        .table("purchase_order_items")
+                        .delete()
+                        .eq(
+                            "purchase_order_id",
+                            delete_po_id
+                        )
+                        .execute()
+                    )
+
+                    # Delete the Purchase Order
+                    (
+                        supabase
+                        .table("purchase_orders")
+                        .delete()
+                        .eq(
+                            "id",
+                            delete_po_id
+                        )
+                        .execute()
+                    )
+
+                    st.success(
+                        "Draft purchase order deleted."
+                    )
+
+                    st.rerun()
     # -----------------------------
     # VIEW PURCHASE ORDER DETAILS
     # -----------------------------

@@ -3899,6 +3899,87 @@ if page == "Purchase Orders":
                         )
 
                         st.rerun()
+
+        # -----------------------------
+    # CANCEL PURCHASE ORDER
+    # -----------------------------
+
+    cancellable_purchase_orders = [
+        po for po in purchase_orders
+        if po.get("status")
+        in ["Ordered", "Partially Received"]
+    ]
+
+    if cancellable_purchase_orders:
+
+        with st.expander("❌ Cancel Purchase Order"):
+
+            cancel_po_id = st.selectbox(
+                "Purchase Order",
+                [
+                    po["id"]
+                    for po in cancellable_purchase_orders
+                ],
+                format_func=lambda po_id: next(
+                    po["po_number"]
+                    for po in cancellable_purchase_orders
+                    if po["id"] == po_id
+                ),
+                key="cancel_po_select"
+            )
+
+            selected_cancel_po = next(
+                po
+                for po in cancellable_purchase_orders
+                if po["id"] == cancel_po_id
+            )
+
+            st.warning(
+                f'You are about to cancel '
+                f'{selected_cancel_po["po_number"]}.'
+            )
+
+            st.info(
+                "Any stock already received will remain in inventory. "
+                "Only the remaining expected quantity will be cancelled."
+            )
+
+            confirm_cancel_po = st.checkbox(
+                "I confirm that I want to cancel this purchase order",
+                key=f"confirm_cancel_po_{cancel_po_id}"
+            )
+
+            if st.button(
+                "Cancel Purchase Order",
+                key=f"cancel_po_button_{cancel_po_id}"
+            ):
+
+                if not confirm_cancel_po:
+
+                    st.error(
+                        "Please confirm the cancellation first."
+                    )
+
+                else:
+
+                    (
+                        supabase
+                        .table("purchase_orders")
+                        .update({
+                            "status": "Cancelled"
+                        })
+                        .eq(
+                            "id",
+                            cancel_po_id
+                        )
+                        .execute()
+                    )
+
+                    st.success(
+                        "Purchase order cancelled."
+                    )
+
+                    st.rerun()
     # -----------------------------
     # DISPLAY PURCHASE ORDERS
     # -----------------------------

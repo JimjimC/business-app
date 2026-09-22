@@ -61,53 +61,64 @@ page = st.sidebar.radio(
     ]
 )
 
+    if st.sidebar.button("Log out"):
+    st.session_state.authenticated = False
+    st.rerun()
+
+
+if page == "Home":
+    st.header("Business Dashboard")
+
     # -----------------------------
     # GET DATA
     # -----------------------------
 
-customer_response = (
-    supabase
-    .table("customers")
-    .select("*")
-    .execute()
-)
+    customer_response = (
+        supabase
+        .table("customers")
+        .select("*")
+        .execute()
+    )
 
-supplier_response = (
-    supabase
-    .table("suppliers")
-    .select("*")
-    .execute()
-)
-product_response = (
-    supabase
-    .table("products")
-    .select("*")
-    .execute()
-)
+    supplier_response = (
+        supabase
+        .table("suppliers")
+        .select("*")
+        .execute()
+    )
 
-invoice_response = (
-    supabase
-    .table("invoices")
-    .select("*")
-    .execute()
-)
+    product_response = (
+        supabase
+        .table("products")
+        .select("*")
+        .execute()
+    )
 
-payment_response = (
-    supabase
-    .table("payments")
-    .select("*")
-    .execute()
-)
+    invoice_response = (
+        supabase
+        .table("invoices")
+        .select("*")
+        .execute()
+    )
 
-customers = customer_response.data
-suppliers = supplier_response.data
-products = product_response.data
-supplier_names = {
-    supplier["id"]: supplier["company_name"]
-    for supplier in suppliers
-}
-invoices = invoice_response.data
-payments = payment_response.data
+    payment_response = (
+        supabase
+        .table("payments")
+        .select("*")
+        .execute()
+    )
+
+    customers = customer_response.data
+    suppliers = supplier_response.data
+    products = product_response.data
+
+    supplier_names = {
+        supplier["id"]: supplier["company_name"]
+        for supplier in suppliers
+    }
+
+    invoices = invoice_response.data
+    payments = payment_response.data
 
     # -----------------------------
     # BASIC COUNTS

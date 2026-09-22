@@ -107,6 +107,24 @@ if page == "Home":
         .select("*")
         .execute()
     )
+        home_po_response = (
+        supabase
+        .table("purchase_orders")
+        .select("id, status")
+        .execute()
+    )
+
+    home_po_items_response = (
+        supabase
+        .table("purchase_order_items")
+        .select(
+            "purchase_order_id, "
+            "product_id, "
+            "quantity_ordered, "
+            "quantity_received"
+        )
+        .execute()
+    )
 
     customers = customer_response.data
     suppliers = supplier_response.data
@@ -119,6 +137,43 @@ if page == "Home":
 
     invoices = invoice_response.data
     payments = payment_response.data
+
+        home_purchase_orders = home_po_response.data
+    home_po_items = home_po_items_response.data
+
+    active_po_ids = {
+        po["id"]
+        for po in home_purchase_orders
+        if po.get("status")
+        in ["Ordered", "Partially Received"]
+    }
+
+    incoming_by_product = {}
+
+    for item in home_po_items:
+
+        if item["purchase_order_id"] not in active_po_ids:
+            continue
+
+        ordered = float(
+            item.get("quantity_ordered") or 0
+        )
+
+        received = float(
+            item.get("quantity_received") or 0
+        )
+
+        remaining = max(
+            ordered - received,
+            0
+        )
+
+        product_id = item["product_id"]
+
+        incoming_by_product[product_id] = (
+            incoming_by_product.get(product_id, 0)
+            + remaining
+        )
 
     # -----------------------------
     # BASIC COUNTS
@@ -161,9 +216,16 @@ if page == "Home":
                  product.get("target_stock") or 0
              )
 
+            on_order = incoming_by_product.get(
+                product["id"],
+                0
+            )
+
             suggested_order = max(
-             target_stock - stock,
-             0
+                target_stock
+                - stock
+                - on_order,
+                0
             )
 
             low_stock_products.append({
@@ -173,6 +235,7 @@ if page == "Home":
                     "Unknown"
                 ),
                 "Stock": stock,
+                "On Order": on_order,
                 "Reorder Level": reorder_level,
                 "Target Stock": target_stock,
                 "Suggested Order": suggested_order

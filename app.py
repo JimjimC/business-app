@@ -2848,6 +2848,118 @@ if page == "Purchase Orders":
     )
 
     purchase_orders = po_response.data
+
+        # -----------------------------
+    # EDIT DRAFT PURCHASE ORDER
+    # -----------------------------
+
+    editable_purchase_orders = [
+        po for po in purchase_orders
+        if po.get("status") == "Draft"
+    ]
+
+    if editable_purchase_orders:
+
+        with st.expander("✏️ Edit Draft Purchase Order"):
+
+            edit_po_id = st.selectbox(
+                "Draft Purchase Order",
+                [po["id"] for po in editable_purchase_orders],
+                format_func=lambda po_id: next(
+                    po["po_number"]
+                    for po in editable_purchase_orders
+                    if po["id"] == po_id
+                ),
+                key="edit_po_select"
+            )
+
+            selected_edit_po = next(
+                po
+                for po in editable_purchase_orders
+                if po["id"] == edit_po_id
+            )
+
+            st.write(
+                f'**Supplier:** '
+                f'{po_supplier_names.get(
+                    selected_edit_po["supplier_id"],
+                    "Unknown"
+                )}'
+            )
+
+            with st.form(
+                f"edit_po_form_{edit_po_id}"
+            ):
+
+                edit_po_number = st.text_input(
+                    "PO number",
+                    value=selected_edit_po.get(
+                        "po_number"
+                    ) or ""
+                )
+
+                edit_order_date = st.date_input(
+                    "Order date",
+                    value=date.fromisoformat(
+                        selected_edit_po["order_date"]
+                    )
+                )
+
+                edit_expected_date = st.date_input(
+                    "Expected date",
+                    value=date.fromisoformat(
+                        selected_edit_po["expected_date"]
+                    )
+                )
+
+                edit_po_notes = st.text_area(
+                    "Notes",
+                    value=selected_edit_po.get(
+                        "notes"
+                    ) or ""
+                )
+
+                save_po_changes = (
+                    st.form_submit_button(
+                        "Save Changes"
+                    )
+                )
+
+                if save_po_changes:
+
+                    if not edit_po_number.strip():
+
+                        st.error(
+                            "PO number is required."
+                        )
+
+                    else:
+
+                        (
+                            supabase
+                            .table("purchase_orders")
+                            .update({
+                                "po_number":
+                                    edit_po_number,
+                                "order_date":
+                                    str(edit_order_date),
+                                "expected_date":
+                                    str(edit_expected_date),
+                                "notes":
+                                    edit_po_notes
+                            })
+                            .eq(
+                                "id",
+                                edit_po_id
+                            )
+                            .execute()
+                        )
+
+                        st.success(
+                            "Purchase order updated."
+                        )
+
+                        st.rerun()
     # -----------------------------
     # ADD PRODUCT TO PURCHASE ORDER
     # -----------------------------

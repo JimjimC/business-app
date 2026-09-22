@@ -2878,6 +2878,13 @@ if page == "Purchase Orders":
                             "PO number is required."
                         )
 
+                    elif expected_date < order_date:
+
+                        st.error(
+                            "Expected date cannot be before "
+                            "the order date."
+                        )
+
                     else:
 
                         normalized_po_number = (
@@ -3036,6 +3043,13 @@ if page == "Purchase Orders":
                         st.error(
                             "PO number is required."
                         )
+
+                    elif edit_expected_date < edit_order_date:
+
+                        st.error(
+                            "Expected date cannot be before "
+                            "the order date."
+                        ) 
 
                     else:
 

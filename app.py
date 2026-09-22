@@ -3121,7 +3121,97 @@ if page == "Purchase Orders":
                 st.info(
                     "This purchase order has no products yet."
                 )
+    # -----------------------------
+    # MARK PURCHASE ORDER AS ORDERED
+    # -----------------------------
 
+    draft_purchase_orders = [
+        po for po in purchase_orders
+        if po.get("status") == "Draft"
+    ]
+
+    if draft_purchase_orders:
+
+        with st.expander("✅ Mark Purchase Order as Ordered"):
+
+            order_po_id = st.selectbox(
+                "Select Draft Purchase Order",
+                [po["id"] for po in draft_purchase_orders],
+                format_func=lambda po_id: next(
+                    po["po_number"]
+                    for po in draft_purchase_orders
+                    if po["id"] == po_id
+                ),
+                key="mark_po_ordered_select"
+            )
+
+            selected_order_po = next(
+                po
+                for po in draft_purchase_orders
+                if po["id"] == order_po_id
+            )
+
+            po_line_check = (
+                supabase
+                .table("purchase_order_items")
+                .select("id")
+                .eq(
+                    "purchase_order_id",
+                    order_po_id
+                )
+                .execute()
+            )
+
+            if not po_line_check.data:
+
+                st.warning(
+                    "This purchase order has no products. "
+                    "Add at least one product before marking it Ordered."
+                )
+
+            else:
+
+                st.warning(
+                    "Once marked Ordered, this purchase order "
+                    "will be treated as confirmed."
+                )
+
+                confirm_order = st.checkbox(
+                    "I confirm this purchase order is ready",
+                    key=f"confirm_po_order_{order_po_id}"
+                )
+
+                if st.button(
+                    "Mark as Ordered",
+                    key=f"mark_po_ordered_button_{order_po_id}"
+                ):
+
+                    if not confirm_order:
+
+                        st.error(
+                            "Please confirm the purchase order first."
+                        )
+
+                    else:
+
+                        (
+                            supabase
+                            .table("purchase_orders")
+                            .update({
+                                "status": "Ordered"
+                            })
+                            .eq(
+                                "id",
+                                order_po_id
+                            )
+                            .execute()
+                        )
+
+                        st.success(
+                            "Purchase order marked as Ordered."
+                        )
+
+                        st.rerun()
     # -----------------------------
     # DISPLAY PURCHASE ORDERS
     # -----------------------------

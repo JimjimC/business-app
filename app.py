@@ -3204,7 +3204,173 @@ if page == "Purchase Orders":
                         )
 
                         st.rerun()
+        # -----------------------------
+    # EDIT DRAFT PO PRODUCT LINE
+    # -----------------------------
 
+    draft_edit_pos = [
+        po for po in purchase_orders
+        if po.get("status") == "Draft"
+    ]
+
+    if draft_edit_pos:
+
+        with st.expander(
+            "✏️ Edit Product on Purchase Order"
+        ):
+
+            edit_line_po_id = st.selectbox(
+                "Draft Purchase Order",
+                [po["id"] for po in draft_edit_pos],
+                format_func=lambda po_id: next(
+                    po["po_number"]
+                    for po in draft_edit_pos
+                    if po["id"] == po_id
+                ),
+                key="edit_po_line_po"
+            )
+
+            edit_line_response = (
+                supabase
+                .table("purchase_order_items")
+                .select("*")
+                .eq(
+                    "purchase_order_id",
+                    edit_line_po_id
+                )
+                .order("id")
+                .execute()
+            )
+
+            edit_po_items = edit_line_response.data
+
+            if not edit_po_items:
+
+                st.info(
+                    "This purchase order has no products."
+                )
+
+            else:
+
+                edit_po_item_id = st.selectbox(
+                    "Product",
+                    [item["id"] for item in edit_po_items],
+                    format_func=lambda item_id: next(
+                        item["description"]
+                        for item in edit_po_items
+                        if item["id"] == item_id
+                    ),
+                    key="edit_po_line_item"
+                )
+
+                selected_edit_item = next(
+                    item
+                    for item in edit_po_items
+                    if item["id"] == edit_po_item_id
+                )
+
+                with st.form(
+                    f"edit_po_line_form_{edit_po_item_id}"
+                ):
+
+                    edit_quantity_ordered = st.number_input(
+                        "Quantity ordered",
+                        min_value=0.01,
+                        value=float(
+                            selected_edit_item.get(
+                                "quantity_ordered"
+                            ) or 0
+                        ),
+                        step=1.0
+                    )
+
+                    edit_unit_cost = st.number_input(
+                        "Unit cost",
+                        min_value=0.0,
+                        value=float(
+                            selected_edit_item.get(
+                                "unit_cost"
+                            ) or 0
+                        ),
+                        step=0.01
+                    )
+
+                    new_line_total = round(
+                        edit_quantity_ordered
+                        * edit_unit_cost,
+                        2
+                    )
+
+                    st.write(
+                        f"**New line total: "
+                        f"{new_line_total:.2f}**"
+                    )
+
+                    save_line_changes = (
+                        st.form_submit_button(
+                            "Save Product Changes"
+                        )
+                    )
+
+                    if save_line_changes:
+
+                        (
+                            supabase
+                            .table("purchase_order_items")
+                            .update({
+                                "quantity_ordered":
+                                    edit_quantity_ordered,
+                                "unit_cost":
+                                    edit_unit_cost,
+                                "line_total":
+                                    new_line_total
+                            })
+                            .eq(
+                                "id",
+                                edit_po_item_id
+                            )
+                            .execute()
+                        )
+
+                        # Recalculate PO total
+                        total_response = (
+                            supabase
+                            .table("purchase_order_items")
+                            .select("line_total")
+                            .eq(
+                                "purchase_order_id",
+                                edit_line_po_id
+                            )
+                            .execute()
+                        )
+
+                        new_po_total = sum(
+                            float(
+                                item.get("line_total") or 0
+                            )
+                            for item
+                            in total_response.data
+                        )
+
+                        (
+                            supabase
+                            .table("purchase_orders")
+                            .update({
+                                "total_amount":
+                                    new_po_total
+                            })
+                            .eq(
+                                "id",
+                                edit_line_po_id
+                            )
+                            .execute()
+                        )
+
+                        st.success(
+                            "Purchase order product updated."
+                        )
+
+                        st.rerun()
     # -----------------------------
     # REMOVE PRODUCT FROM DRAFT PO
     # -----------------------------
@@ -3349,7 +3515,7 @@ if page == "Purchase Orders":
 
                         st.rerun()
 
-        # -----------------------------
+    # -----------------------------
     # DELETE DRAFT PURCHASE ORDER
     # -----------------------------
 
@@ -3900,7 +4066,7 @@ if page == "Purchase Orders":
 
                         st.rerun()
 
-        # -----------------------------
+    # -----------------------------
     # CANCEL PURCHASE ORDER
     # -----------------------------
 

@@ -3146,64 +3146,93 @@ if page == "Purchase Orders":
                         "Add Product to Purchase Order"
                     ):
 
-                        (
+                        duplicate_response = (
                             supabase
                             .table("purchase_order_items")
-                            .insert({
-                                "purchase_order_id":
-                                    selected_po_id,
-                                "product_id":
-                                    selected_po_product_id,
-                                "description":
-                                    selected_po_product[
-                                        "product_name"
-                                    ],
-                                "quantity_ordered":
-                                    quantity_ordered,
-                                "quantity_received": 0,
-                                "unit_cost": unit_cost,
-                                "line_total": line_total
-                            })
-                            .execute()
-                        )
-
-                        po_items_response = (
-                            supabase
-                            .table("purchase_order_items")
-                            .select("line_total")
+                            .select("id")
                             .eq(
                                 "purchase_order_id",
                                 selected_po_id
                             )
-                            .execute()
-                        )
-
-                        po_total = sum(
-                            float(
-                                item.get("line_total") or 0
-                            )
-                            for item
-                            in po_items_response.data
-                        )
-
-                        (
-                            supabase
-                            .table("purchase_orders")
-                            .update({
-                                "total_amount": po_total
-                            })
                             .eq(
-                                "id",
-                                selected_po_id
+                                "product_id",
+                                selected_po_product_id
                             )
                             .execute()
                         )
 
-                        st.success(
-                            "Product added to purchase order."
-                        )
+                        if duplicate_response.data:
 
-                        st.rerun()
+                            st.error(
+                                "This product is already on "
+                                "this purchase order. "
+                                "Use Edit Product instead."
+                            )
+
+                        else:
+
+                            (
+                                supabase
+                                .table("purchase_order_items")
+                                .insert({
+                                    "purchase_order_id":
+                                        selected_po_id,
+                                    "product_id":
+                                        selected_po_product_id,
+                                    "description":
+                                        selected_po_product[
+                                            "product_name"
+                                        ],
+                                    "quantity_ordered":
+                                        quantity_ordered,
+                                    "quantity_received": 0,
+                                    "unit_cost": unit_cost,
+                                    "line_total": line_total
+                                })
+                                .execute()
+                            )
+
+                            po_items_response = (
+                                supabase
+                                .table("purchase_order_items")
+                                .select("line_total")
+                                .eq(
+                                    "purchase_order_id",
+                                    selected_po_id
+                                )
+                                .execute()
+                            )
+
+                            po_total = sum(
+                                float(
+                                    item.get(
+                                        "line_total"
+                                    ) or 0
+                                )
+                                for item
+                                in po_items_response.data
+                            )
+
+                            (
+                                supabase
+                                .table("purchase_orders")
+                                .update({
+                                    "total_amount":
+                                        po_total
+                                })
+                                .eq(
+                                    "id",
+                                    selected_po_id
+                                )
+                                .execute()
+                            )
+
+                            st.success(
+                                "Product added to "
+                                "purchase order."
+                            )
+
+                            st.rerun()
         # -----------------------------
     # EDIT DRAFT PO PRODUCT LINE
     # -----------------------------

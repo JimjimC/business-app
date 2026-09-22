@@ -138,7 +138,7 @@ if page == "Home":
     invoices = invoice_response.data
     payments = payment_response.data
 
-        home_purchase_orders = home_po_response.data
+    home_purchase_orders = home_po_response.data
     home_po_items = home_po_items_response.data
 
     active_po_ids = {

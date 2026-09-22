@@ -2870,8 +2870,7 @@ if page == "Purchase Orders":
                 submitted = st.form_submit_button(
                     "Create Purchase Order"
                 )
-
-                 if submitted:
+                if submitted:
 
                     if not po_number.strip():
 
@@ -2938,6 +2937,7 @@ if page == "Purchase Orders":
                             )
 
                             st.rerun()
+                 
 
     # -----------------------------
     # GET PURCHASE ORDERS

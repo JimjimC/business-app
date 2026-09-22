@@ -3029,6 +3029,150 @@ if page == "Purchase Orders":
                         )
 
                         st.rerun()
+
+        # -----------------------------
+    # REMOVE PRODUCT FROM DRAFT PO
+    # -----------------------------
+
+    draft_remove_pos = [
+        po for po in purchase_orders
+        if po.get("status") == "Draft"
+    ]
+
+    if draft_remove_pos:
+
+        with st.expander(
+            "🗑️ Remove Product from Purchase Order"
+        ):
+
+            remove_po_id = st.selectbox(
+                "Draft Purchase Order",
+                [po["id"] for po in draft_remove_pos],
+                format_func=lambda po_id: next(
+                    po["po_number"]
+                    for po in draft_remove_pos
+                    if po["id"] == po_id
+                ),
+                key="remove_po_line_select"
+            )
+
+            remove_po_items_response = (
+                supabase
+                .table("purchase_order_items")
+                .select("*")
+                .eq(
+                    "purchase_order_id",
+                    remove_po_id
+                )
+                .order("id")
+                .execute()
+            )
+
+            remove_po_items = (
+                remove_po_items_response.data
+            )
+
+            if not remove_po_items:
+
+                st.info(
+                    "This purchase order has no products."
+                )
+
+            else:
+
+                remove_po_item_id = st.selectbox(
+                    "Product",
+                    [
+                        item["id"]
+                        for item in remove_po_items
+                    ],
+                    format_func=lambda item_id: next(
+                        f'{item["description"]} - '
+                        f'Qty {item["quantity_ordered"]}'
+                        for item in remove_po_items
+                        if item["id"] == item_id
+                    ),
+                    key="remove_po_item_select"
+                )
+
+                selected_remove_po_item = next(
+                    item
+                    for item in remove_po_items
+                    if item["id"] == remove_po_item_id
+                )
+
+                st.warning(
+                    f'You are about to remove '
+                    f'{selected_remove_po_item["description"]}.'
+                )
+
+                confirm_remove_po_item = st.checkbox(
+                    "I confirm that I want to remove this product",
+                    key=f"confirm_remove_po_{remove_po_item_id}"
+                )
+
+                if st.button(
+                    "Remove Product",
+                    key=f"remove_po_item_button_{remove_po_item_id}"
+                ):
+
+                    if not confirm_remove_po_item:
+
+                        st.error(
+                            "Please confirm the removal first."
+                        )
+
+                    else:
+
+                        (
+                            supabase
+                            .table("purchase_order_items")
+                            .delete()
+                            .eq(
+                                "id",
+                                remove_po_item_id
+                            )
+                            .execute()
+                        )
+
+                        remaining_response = (
+                            supabase
+                            .table("purchase_order_items")
+                            .select("line_total")
+                            .eq(
+                                "purchase_order_id",
+                                remove_po_id
+                            )
+                            .execute()
+                        )
+
+                        new_po_total = sum(
+                            float(
+                                item.get("line_total") or 0
+                            )
+                            for item
+                            in remaining_response.data
+                        )
+
+                        (
+                            supabase
+                            .table("purchase_orders")
+                            .update({
+                                "total_amount":
+                                    new_po_total
+                            })
+                            .eq(
+                                "id",
+                                remove_po_id
+                            )
+                            .execute()
+                        )
+
+                        st.success(
+                            "Product removed from purchase order."
+                        )
+
+                        st.rerun()
     # -----------------------------
     # VIEW PURCHASE ORDER DETAILS
     # -----------------------------
@@ -3213,7 +3357,7 @@ if page == "Purchase Orders":
 
                         st.rerun()
 
-        # -----------------------------
+    # -----------------------------
     # RECEIVE STOCK
     # -----------------------------
 

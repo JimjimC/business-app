@@ -3212,6 +3212,288 @@ if page == "Purchase Orders":
                         )
 
                         st.rerun()
+
+        # -----------------------------
+    # RECEIVE STOCK
+    # -----------------------------
+
+    receivable_purchase_orders = [
+        po for po in purchase_orders
+        if po.get("status")
+        in ["Ordered", "Partially Received"]
+    ]
+
+    if receivable_purchase_orders:
+
+        with st.expander("📦 Receive Stock"):
+
+            receive_po_id = st.selectbox(
+                "Purchase Order",
+                [
+                    po["id"]
+                    for po in receivable_purchase_orders
+                ],
+                format_func=lambda po_id: next(
+                    po["po_number"]
+                    for po in receivable_purchase_orders
+                    if po["id"] == po_id
+                ),
+                key="receive_po_select"
+            )
+
+            receive_items_response = (
+                supabase
+                .table("purchase_order_items")
+                .select("*")
+                .eq(
+                    "purchase_order_id",
+                    receive_po_id
+                )
+                .order("id")
+                .execute()
+            )
+
+            receive_items = receive_items_response.data
+
+            open_receive_items = []
+
+            for item in receive_items:
+
+                ordered = float(
+                    item.get("quantity_ordered") or 0
+                )
+
+                already_received = float(
+                    item.get("quantity_received") or 0
+                )
+
+                remaining = (
+                    ordered - already_received
+                )
+
+                if remaining > 0.01:
+
+                    item_copy = item.copy()
+                    item_copy["remaining"] = remaining
+
+                    open_receive_items.append(
+                        item_copy
+                    )
+
+            if not open_receive_items:
+
+                st.success(
+                    "All products on this purchase order "
+                    "have already been received."
+                )
+
+            else:
+
+                receive_item_id = st.selectbox(
+                    "Product",
+                    [
+                        item["id"]
+                        for item in open_receive_items
+                    ],
+                    format_func=lambda item_id: next(
+                        item["description"]
+                        for item in open_receive_items
+                        if item["id"] == item_id
+                    ),
+                    key="receive_po_item_select"
+                )
+
+                selected_receive_item = next(
+                    item
+                    for item in open_receive_items
+                    if item["id"] == receive_item_id
+                )
+
+                remaining_quantity = float(
+                    selected_receive_item["remaining"]
+                )
+
+                st.write(
+                    f"**Ordered:** "
+                    f'{float(
+                        selected_receive_item[
+                            "quantity_ordered"
+                        ]
+                    ):g}'
+                )
+
+                st.write(
+                    f"**Already received:** "
+                    f'{float(
+                        selected_receive_item[
+                            "quantity_received"
+                        ] or 0
+                    ):g}'
+                )
+
+                st.write(
+                    f"**Remaining:** "
+                    f"{remaining_quantity:g}"
+                )
+
+                quantity_received_now = (
+                    st.number_input(
+                        "Quantity received now",
+                        min_value=0.01,
+                        max_value=remaining_quantity,
+                        value=remaining_quantity,
+                        step=1.0
+                    )
+                )
+
+                if st.button(
+                    "Receive Stock",
+                    key="receive_stock_button"
+                ):
+
+                    product_id = (
+                        selected_receive_item[
+                            "product_id"
+                        ]
+                    )
+
+                    product_response = (
+                        supabase
+                        .table("products")
+                        .select("stock_quantity")
+                        .eq(
+                            "id",
+                            product_id
+                        )
+                        .execute()
+                    )
+
+                    product_data = (
+                        product_response.data
+                    )
+
+                    if not product_data:
+
+                        st.error(
+                            "Product could not be found."
+                        )
+
+                    else:
+
+                        current_stock = float(
+                            product_data[0].get(
+                                "stock_quantity"
+                            ) or 0
+                        )
+
+                        new_stock = (
+                            current_stock
+                            + quantity_received_now
+                        )
+
+                        new_received_total = (
+                            float(
+                                selected_receive_item.get(
+                                    "quantity_received"
+                                ) or 0
+                            )
+                            + quantity_received_now
+                        )
+
+                        # Update product stock
+                        (
+                            supabase
+                            .table("products")
+                            .update({
+                                "stock_quantity":
+                                    new_stock
+                            })
+                            .eq(
+                                "id",
+                                product_id
+                            )
+                            .execute()
+                        )
+
+                        # Update PO item received quantity
+                        (
+                            supabase
+                            .table(
+                                "purchase_order_items"
+                            )
+                            .update({
+                                "quantity_received":
+                                    new_received_total
+                            })
+                            .eq(
+                                "id",
+                                receive_item_id
+                            )
+                            .execute()
+                        )
+
+                        # Re-check all PO items
+                        status_items_response = (
+                            supabase
+                            .table(
+                                "purchase_order_items"
+                            )
+                            .select(
+                                "quantity_ordered, "
+                                "quantity_received"
+                            )
+                            .eq(
+                                "purchase_order_id",
+                                receive_po_id
+                            )
+                            .execute()
+                        )
+
+                        status_items = (
+                            status_items_response.data
+                        )
+
+                        all_received = all(
+                            float(
+                                item.get(
+                                    "quantity_received"
+                                ) or 0
+                            )
+                            >=
+                            float(
+                                item.get(
+                                    "quantity_ordered"
+                                ) or 0
+                            )
+                            for item in status_items
+                        )
+
+                        if all_received:
+                            new_po_status = "Received"
+                        else:
+                            new_po_status = (
+                                "Partially Received"
+                            )
+
+                        (
+                            supabase
+                            .table("purchase_orders")
+                            .update({
+                                "status":
+                                    new_po_status
+                            })
+                            .eq(
+                                "id",
+                                receive_po_id
+                            )
+                            .execute()
+                        )
+
+                        st.success(
+                            "Stock received successfully."
+                        )
+
+                        st.rerun()
     # -----------------------------
     # DISPLAY PURCHASE ORDERS
     # -----------------------------
